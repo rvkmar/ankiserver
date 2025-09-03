@@ -82,12 +82,14 @@ def dashboard():
         try:
             stats = get_student_stats(student)
             if stats:
-                stats_list.append({
-                    "username": student,
-                    "total_cards": stats.get("total", 0),
-                    "due_cards": stats.get("due", 0),
-                    "reviews_today": stats.get("reviews_today", 0),
-                })
+                stats_list.append(
+                    {
+                        "username": student,
+                        "total_cards": stats.get("total", 0),
+                        "due_cards": stats.get("due", 0),
+                        "reviews_today": stats.get("reviews_today", 0),
+                    }
+                )
             # include review history
             history[student] = get_review_history(student, days=14)
         except Exception as e:
@@ -169,6 +171,7 @@ def student_dashboard(username):
     stats = get_student_stats(username)
     history = get_review_history(username, days=30)
     deck_stats = get_deck_stats(username)
+    full_stats = get_full_stats(username)
 
     if not stats:
         flash(f"No stats available for {username}", "error")
@@ -179,6 +182,7 @@ def student_dashboard(username):
         stats=stats,
         history=history,
         deck_stats=deck_stats,
+        full_stats=full_stats,
         student=username,
     )
 
@@ -294,6 +298,49 @@ def get_deck_stats(username):
 
     conn.close()
     return deck_stats
+
+
+def get_full_stats(username):
+    db_path = os.path.join(SYNC_BASE, username, "collection.anki2")
+    if not os.path.exists(db_path):
+        return {}
+
+    conn = sqlite3.connect(db_path)
+    c = conn.cursor()
+
+    stats = {}
+
+    # --- Card counts by type ---
+    try:
+        c.execute("SELECT type, COUNT(*) FROM cards GROUP BY type")
+        # type: 0=new, 1=learning, 2=review, 3=relearning
+        stats["card_types"] = {t: n for t, n in c.fetchall()}
+    except Exception as e:
+        stats["card_types"] = {}
+        print("⚠️ card_types error:", e)
+
+    # --- Total cards & due ---
+    c.execute("SELECT COUNT(*) FROM cards")
+    stats["total"] = c.fetchone()[0]
+
+    c.execute("SELECT COUNT(*) FROM cards WHERE due <= strftime('%s','now')")
+    stats["due"] = c.fetchone()[0]
+
+    # --- Reviews per day (last 30 days) ---
+    c.execute("""
+        SELECT strftime('%Y-%m-%d', id/1000, 'unixepoch') as day, COUNT(*)
+        FROM revlog
+        WHERE id > strftime('%s','now','-30 days')*1000
+        GROUP BY day
+    """)
+    stats["reviews_per_day"] = c.fetchall()
+
+    # --- Answer button counts (ease) ---
+    c.execute("SELECT ease, COUNT(*) FROM revlog GROUP BY ease")
+    stats["ease_counts"] = {ease: n for ease, n in c.fetchall()}
+
+    conn.close()
+    return stats
 
 
 if __name__ == "__main__":

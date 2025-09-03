@@ -1,90 +1,95 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>📊 Dashboard for {{ stats.username }}</h2>
+<h2>📊 Stats for {{ student }}</h2>
 
-<div class="card mx-auto mb-4" style="max-width:700px;">
-  <div class="card-body">
-    <h4>Summary</h4>
-    <ul>
-      <li><b>Total Cards:</b> {{ stats.total_cards }}</li>
-      <li><b>Due Cards:</b> {{ stats.due_cards }}</li>
-      <li><b>Reviews Today:</b> {{ stats.reviews_today }}</li>
-    </ul>
+<div class="row">
+  <!-- Card Types -->
+  <div class="col-md-6">
+    <div class="card mb-4">
+      <div class="card-body">
+        <h5>Card Types</h5>
+        <canvas id="cardTypeChart" height="200"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Answer Buttons -->
+  <div class="col-md-6">
+    <div class="card mb-4">
+      <div class="card-body">
+        <h5>Answer Buttons</h5>
+        <canvas id="easeChart" height="200"></canvas>
+      </div>
+    </div>
   </div>
 </div>
 
-<div class="card mx-auto mb-4" style="max-width:900px;">
+<!-- Reviews per Day -->
+<div class="card mb-4">
   <div class="card-body">
-    <h4>Deck Breakdown</h4>
-    <table class="table table-bordered">
-      <thead class="table-dark">
-        <tr><th>Deck</th><th>Total</th><th>Due</th><th>Reviews Today</th></tr>
-      </thead>
-      <tbody>
-        {% for d in deck_stats %}
-        <tr>
-          <td>{{ d.deck }}</td>
-          <td>{{ d.total }}</td>
-          <td>{{ d.due }}</td>
-          <td>{{ d.reviews_today }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    <canvas id="deckChart" height="150"></canvas>
-  </div>
-</div>
-
-<div class="card mx-auto" style="max-width:900px;">
-  <div class="card-body">
-    <h4>📈 Review History (last 30 days)</h4>
-    <canvas id="reviewHistory" height="150"></canvas>
+    <h5>Reviews per Day (last 30 days)</h5>
+    <canvas id="reviewChart" height="120"></canvas>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-// Pie chart of total cards per deck
-const deckCtx = document.getElementById('deckChart').getContext('2d');
-new Chart(deckCtx, {
-  type: 'pie',
-  data: {
-    labels: [{% for d in deck_stats %}"{{ d.name }}",{% endfor %}],
-    datasets: [{
-      data: [{% for d in deck_stats %}{{ d.total }},{% endfor %}],
-      backgroundColor: [
-        'rgba(255, 99, 132, 0.6)',
-        'rgba(54, 162, 235, 0.6)',
-        'rgba(255, 206, 86, 0.6)',
-        'rgba(75, 192, 192, 0.6)',
-        'rgba(153, 102, 255, 0.6)',
-        'rgba(255, 159, 64, 0.6)'
-      ]
+  // --- Card Types Pie Chart ---
+  const cardTypeCtx = document.getElementById('cardTypeChart').getContext('2d');
+  new Chart(cardTypeCtx, {
+    type: 'pie',
+    data: {
+      labels: ["New", "Learning", "Review", "Relearning"],
+      datasets: [{
+        data: [
+          {{ full_stats.card_types.get(0, 0) }},
+      {{ full_stats.card_types.get(1, 0) }},
+        {{ full_stats.card_types.get(2, 0) }},
+    {{ full_stats.card_types.get(3, 0) }}
+      ],
+    backgroundColor: ['#ff6384', '#36a2eb', '#ffce56', '#4bc0c0']
     }]
   },
-  options: {
-    plugins: { title: { display: true, text: 'Cards per Deck' } }
-  }
+    options: { responsive: true }
 });
 
-// Review history line chart
-const ctx = document.getElementById('reviewHistory').getContext('2d');
-const historyLabels = [{% for r in history %}"{{ r.day }}",{% endfor %}];
-const historyCounts = [{% for r in history %}{{ r.count }},{% endfor %}];
-
-new Chart(ctx, {
-  type: 'line',
-  data: {
-    labels: historyLabels,
-    datasets: [{
-      label: 'Reviews per Day',
-      data: historyCounts,
-      borderColor: 'rgb(75, 192, 192)',
-      tension: 0.2,
-      fill: false
+  // --- Answer Buttons Pie Chart ---
+  const easeCtx = document.getElementById('easeChart').getContext('2d');
+  new Chart(easeCtx, {
+    type: 'pie',
+    data: {
+      labels: ["Again", "Hard", "Good", "Easy"],
+      datasets: [{
+        data: [
+          {{ full_stats.ease_counts.get(1, 0) }},
+      {{ full_stats.ease_counts.get(2, 0) }},
+        {{ full_stats.ease_counts.get(3, 0) }},
+    {{ full_stats.ease_counts.get(4, 0) }}
+      ],
+    backgroundColor: ['#ff6384', '#ff9f40', '#36a2eb', '#4bc0c0']
     }]
+  },
+    options: { responsive: true }
+});
+
+  // --- Reviews per Day (last 30 days) ---
+  const reviewCtx = document.getElementById('reviewChart').getContext('2d');
+  new Chart(reviewCtx, {
+    type: 'line',
+    data: {
+      labels: [{% for d, c in full_stats.reviews_per_day %}"{{ d }}",{% endfor %}],
+    datasets: [{
+      label: "Reviews",
+      data: [{% for d, c in full_stats.reviews_per_day %}{{ c }}, {% endfor %}],
+    borderColor: "#36a2eb",
+    fill: true,
+    tension: 0.2
+    }]
+  },
+    options: {
+    responsive: true,
+    scales: { y: { beginAtZero: true } }
   }
 });
 </script>
 {% endblock %}
-
