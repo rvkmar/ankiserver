@@ -15,30 +15,22 @@
         </tr>
       </thead>
       <tbody>
-        {% if stats_list %}
         {% for s in stats_list %}
         <tr>
           <td>{{ s.username }}</td>
           <td>{{ s.total_cards }}</td>
           <td>{{ s.due_cards }}</td>
           <td>{{ s.reviews_today }}</td>
-          <td><a class="btn btn-sm btn-info" href="{{ url_for('student_dashboard', username=s.username) }}">View</a>
+          <td>
+            <a class="btn btn-sm btn-info" href="{{ url_for('student_dashboard', username=s.username) }}">View</a>
           </td>
         </tr>
         {% endfor %}
-        {% else %}
-        <tr>
-          <td colspan="5" class="text-center text-muted">
-            🚫 No students available
-          </td>
-        </tr>
-        {% endif %}
       </tbody>
     </table>
   </div>
 </div>
 
-{% if stats_list %}
 <!-- 📊 Chart -->
 <div class="card mx-auto mt-4" style="max-width:900px;">
   <div class="card-body">
@@ -47,46 +39,55 @@
   </div>
 </div>
 
-<!-- 📈 Review Trends -->
 <div class="card mx-auto mt-4" style="max-width:900px;">
   <div class="card-body">
     <h4>📈 Review Trends (Last 14 days)</h4>
     <canvas id="trendChart" height="150"></canvas>
   </div>
 </div>
-{% endif %}
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-{% if stats_list %}
 <script>
-  // 📊 Bar Chart
-  const ctx = document.getElementById('statsChart').getContext('2d');
-  const data = {
-    labels: [{% for s in stats_list %}"{{ s.username }}", {% endfor %}],
-  datasets: [
+  document.addEventListener("DOMContentLoaded", function () {
+    // --- Bar chart for due/reviews ---
+    const ctx = document.getElementById('statsChart').getContext('2d');
+    const data = {
+      labels: [{% for s in stats_list %}"{{ s.username }}", {% endfor %}],
+    datasets: [
     {
       label: 'Due Cards',
       data: [{% for s in stats_list %}{{ s.due_cards }}, {% endfor %}],
     backgroundColor: 'rgba(255, 99, 132, 0.6)'
       },
-  {
-    label: 'Reviews Today',
-      data: [{% for s in stats_list %} { { s.reviews_today } }, {% endfor %}],
-  backgroundColor: 'rgba(54, 162, 235, 0.6)'
+    {
+      label: 'Reviews Today',
+      data: [{% for s in stats_list %}{{ s.reviews_today }}, {% endfor %}],
+    backgroundColor: 'rgba(54, 162, 235, 0.6)'
       }
     ]
   };
-  new Chart(ctx, { type: 'bar', data: data, options: { responsive: true } });
+  new Chart(ctx, {
+    type: 'bar',
+    data: data,
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'top' },
+        title: { display: true, text: 'Student Performance Overview' }
+      },
+      scales: { y: { beginAtZero: true } }
+    }
+  });
 
-  // 📈 Line Chart for Review Trends
+  // --- Line chart for review history ---
   const trendCtx = document.getElementById('trendChart').getContext('2d');
   const trendData = {
-    labels: [...new Set([{% for user, rows in history.items() %}{% for r in rows %}"{{ r.day }}", {% endfor %}{% endfor %}])],
+    labels: [...new Set([{% for user, rows in history.items() %}{% for r in rows %}"{{ r.date }}", {% endfor %}{% endfor %}])],
   datasets: [
     {% for user, rows in history.items() %}
   {
     label: "{{ user }}",
-      data: [{% for r in rows %} { { r.count } }, {% endfor %}],
+      data: [{% for r in rows %} { { r.reviews } }, {% endfor %}],
   borderColor: 'hsl({{ loop.index * 70 }}, 70%, 50%)',
     fill: false,
       tension: 0.2
@@ -94,7 +95,17 @@
   {% endfor %}
     ]
   };
-  new Chart(trendCtx, { type: 'line', data: trendData, options: { responsive: true } });
+  new Chart(trendCtx, {
+    type: 'line',
+    data: trendData,
+    options: {
+      responsive: true,
+      plugins: {
+        title: { display: true, text: 'Daily Reviews per Student' }
+      },
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+});
 </script>
-{% endif %}
 {% endblock %}
