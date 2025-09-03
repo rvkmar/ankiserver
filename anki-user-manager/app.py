@@ -183,9 +183,10 @@ def student_dashboard(username):
         stats=stats,
         history=history,
         deck_stats=deck_stats,
-        full_stats=full_stats,
-        review_time=review_time,
         student=username,
+        full_stats=full_stats,
+        review_time=review_time["daily"],
+        avg_time=review_time["avg_time"]
     )
 
 
@@ -370,7 +371,7 @@ def get_full_stats(username):
 def get_review_time(username, days=30):
     db_path = os.path.join(SYNC_BASE, username, "collection.anki2")
     if not os.path.exists(db_path):
-        return []
+        return {"daily": [], "avg_time": 0}
 
     conn = sqlite3.connect(db_path)
     c = conn.cursor()
@@ -378,7 +379,19 @@ def get_review_time(username, days=30):
     start = datetime.now() - timedelta(days=days)
     start_ts = int(start.timestamp() * 1000)
 
-    # ivl field = interval, time field = ms spent (in old Anki it's in ms*10, but in newer it's ms)
+    # Total time + count for avg
+    c.execute(
+        """
+        SELECT SUM(time)/1000.0, COUNT(*)
+        FROM revlog
+        WHERE id >= ?
+    """,
+        (start_ts,),
+    )
+    total_time, count = c.fetchone()
+    avg_time = round(total_time / count, 2) if count else 0
+
+    # Per day totals
     c.execute(
         """
         SELECT (id/1000) as day, SUM(time)/1000.0 as seconds
@@ -388,14 +401,16 @@ def get_review_time(username, days=30):
     """,
         (start_ts,),
     )
-
     rows = c.fetchall()
     conn.close()
 
-    return [
-        {"date": datetime.fromtimestamp(ts).strftime("%Y-%m-%d"), "seconds": sec}
-        for ts, sec in rows
-    ]
+    return {
+        "daily": [
+            {"date": datetime.fromtimestamp(ts).strftime("%Y-%m-%d"), "seconds": sec}
+            for ts, sec in rows
+        ],
+        "avg_time": avg_time,
+    }
 
 
 if __name__ == "__main__":
