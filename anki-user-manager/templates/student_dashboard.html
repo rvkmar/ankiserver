@@ -40,6 +40,39 @@
   </div>
 </div>
 
+<!-- Intervals Histogram -->
+<div class="card mb-4">
+  <div class="card-body">
+    <h5>⏳ Intervals Histogram</h5>
+    <canvas id="intervalsChart" height="120"></canvas>
+  </div>
+</div>
+
+<script>
+  // --- Intervals Histogram ---
+  const intervalsCtx = document.getElementById('intervalsChart').getContext('2d');
+  new Chart(intervalsCtx, {
+    type: 'bar',
+    data: {
+      labels: [{% for lbl, cnt in full_stats.intervals %}"{{ lbl }}",{% endfor %}],
+    datasets: [{
+      label: "Cards",
+      data: [{% for lbl, cnt in full_stats.intervals %}{{ cnt }}, {% endfor %}],
+    backgroundColor: "rgba(153, 102, 255, 0.6)"
+    }]
+  },
+    options: {
+    responsive: true,
+    plugins: {
+      title: { display: true, text: "Card Distribution by Interval" }
+    },
+    scales: {
+      y: { beginAtZero: true }
+    }
+  }
+});
+</script>
+
 <script>
   // --- Backlog (Future Due) ---
   const backlogCtx = document.getElementById('backlogChart').getContext('2d');

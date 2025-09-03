@@ -347,6 +347,21 @@ def get_full_stats(username):
     )
     stats["future_due"] = c.fetchall()
 
+    # --- Intervals histogram ---
+    c.execute("SELECT ivl FROM cards WHERE ivl > 0")
+    intervals = [row[0] for row in c.fetchall()]
+    bins = [1, 3, 7, 15, 30, 90, 180, 365, 9999]  # similar to Anki buckets
+    labels = ["1d", "3d", "1w", "2w", "1m", "3m", "6m", "1y+"]
+
+    counts = [0] * (len(bins) - 1)
+    for ivl in intervals:
+        for i in range(len(bins) - 1):
+            if bins[i] <= ivl < bins[i + 1]:
+                counts[i] += 1
+                break
+
+    stats["intervals"] = list(zip(labels, counts))
+
     conn.close()
     return stats
 
