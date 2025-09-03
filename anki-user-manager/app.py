@@ -5,7 +5,9 @@ import shutil
 import subprocess
 from datetime import datetime, timedelta
 from functools import wraps
+from fsrs import Scheduler, Card, Rating, ReviewLog
 from flask import Flask, render_template, request, redirect, url_for, flash, session
+
 
 app = Flask(__name__)
 app.secret_key = "supersecret"  # TODO: change in production
@@ -412,6 +414,39 @@ def get_review_time(username, days=30):
         "avg_time": avg_time,
     }
 
+# FSRS statistics
+def get_fsrs_stats(username):
+    db_path = os.path.join(SYNC_BASE, username, "collection.anki2")
+    if not os.path.exists(db_path):
+        return None
+
+    conn = sqlite3.connect(db_path)
+    rows = conn.execute("SELECT id, cid, ease, time, type FROM revlog").fetchall()
+    conn.close()
+
+    scheduler = Scheduler()
+    cards = {}
+
+    for id_, cid, ease, time_ms, type_ in rows:
+        rating = Rating(ease)  # fsrs Rating expects exact enum
+        review_time = datetime.fromtimestamp(id_ / 1000)
+        if cid not in cards:
+            cards[cid] = Card()
+        scheduler.review_card(
+            cards[cid], ReviewLog(rating=rating, timestamp=review_time)
+        )
+
+    vals = list(cards.values())
+    return {
+        "avg_difficulty": round(sum(c.difficulty for c in vals) / len(vals), 2),
+        "avg_stability": round(sum(c.stability for c in vals) / len(vals), 2),
+        "avg_retrievability": round(
+            sum(c.retrievability(datetime.now()) for c in vals) / len(vals), 2
+        ),
+        "true_retention": round(
+            sum(1 for _, _, ease_, _, _, _, _ in rows if ease_ > 1) / len(rows) * 100, 2
+        ),
+    }
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5000, debug=False)

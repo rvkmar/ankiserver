@@ -57,6 +57,24 @@
   </div>
 </div>
 
+<!-- FSRS Metrics -->
+<div class="card mb-4">
+  <div class="card-body">
+    <h5>FSRS Metrics</h5>
+    {% if fsrs_stats %}
+    <ul class="list-group">
+      <li class="list-group-item">Avg Difficulty: {{ fsrs_stats.avg_difficulty }}</li>
+      <li class="list-group-item">Avg Stability (days): {{ fsrs_stats.avg_stability }}</li>
+      <li class="list-group-item">Avg Retrievability: {{ fsrs_stats.avg_retrievability * 100 }}%</li>
+      <li class="list-group-item">True Retention: {{ fsrs_stats.true_retention }}%</li>
+    </ul>
+    {% else %}
+    <p>No FSRS stats available.</p>
+    {% endif %}
+  </div>
+</div>
+
+
 <script>
   const timeCtx = document.getElementById('timeChart').getContext('2d');
 
