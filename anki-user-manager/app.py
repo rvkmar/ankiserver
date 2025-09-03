@@ -174,6 +174,7 @@ def student_dashboard(username):
     deck_stats = get_deck_stats(username)
     full_stats = get_full_stats(username)
     review_time = get_review_time(username, days=30)
+    fsrs_stats = get_fsrs_stats(username)
 
     if not stats:
         flash(f"No stats available for {username}", "error")
@@ -187,7 +188,8 @@ def student_dashboard(username):
         student=username,
         full_stats=full_stats,
         review_time=review_time["daily"],
-        avg_time=review_time["avg_time"]
+        avg_time=review_time["avg_time"],
+        fsrs_stats=fsrs_stats
     )
 
 
