@@ -32,6 +32,37 @@
   </div>
 </div>
 
+<!-- Backlog (Future Due) -->
+<div class="card mb-4">
+  <div class="card-body">
+    <h5>📅 Backlog (Future Due Cards, next 30 days)</h5>
+    <canvas id="backlogChart" height="120"></canvas>
+  </div>
+</div>
+
+<script>
+  // --- Backlog (Future Due) ---
+  const backlogCtx = document.getElementById('backlogChart').getContext('2d');
+  new Chart(backlogCtx, {
+    type: 'bar',
+    data: {
+      labels: [{% for d, c in full_stats.future_due %}"{{ d }}",{% endfor %}],
+    datasets: [{
+      label: "Due Cards",
+      data: [{% for d, c in full_stats.future_due %}{{ c }}, {% endfor %}],
+    backgroundColor: "rgba(75, 192, 192, 0.6)"
+    }]
+  },
+    options: {
+    responsive: true,
+    scales: { y: { beginAtZero: true } },
+    plugins: {
+      title: { display: true, text: "Future Scheduled Cards" }
+    }
+  }
+});
+</script>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
   // --- Card Types Pie Chart ---

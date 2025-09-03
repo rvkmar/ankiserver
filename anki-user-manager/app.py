@@ -310,34 +310,42 @@ def get_full_stats(username):
 
     stats = {}
 
-    # --- Card counts by type ---
-    try:
-        c.execute("SELECT type, COUNT(*) FROM cards GROUP BY type")
-        # type: 0=new, 1=learning, 2=review, 3=relearning
-        stats["card_types"] = {t: n for t, n in c.fetchall()}
-    except Exception as e:
-        stats["card_types"] = {}
-        print("⚠️ card_types error:", e)
+    # --- Card types ---
+    c.execute("SELECT type, COUNT(*) FROM cards GROUP BY type")
+    stats["card_types"] = {t: n for t, n in c.fetchall()}
 
-    # --- Total cards & due ---
-    c.execute("SELECT COUNT(*) FROM cards")
-    stats["total"] = c.fetchone()[0]
-
-    c.execute("SELECT COUNT(*) FROM cards WHERE due <= strftime('%s','now')")
-    stats["due"] = c.fetchone()[0]
+    # --- Ease counts ---
+    c.execute("SELECT ease, COUNT(*) FROM revlog GROUP BY ease")
+    stats["ease_counts"] = {e: n for e, n in c.fetchall()}
 
     # --- Reviews per day (last 30 days) ---
-    c.execute("""
-        SELECT strftime('%Y-%m-%d', id/1000, 'unixepoch') as day, COUNT(*)
+    start = datetime.now() - timedelta(days=30)
+    start_ts = int(start.timestamp() * 1000)
+    c.execute(
+        """
+        SELECT strftime('%Y-%m-%d', id/1000, 'unixepoch'), COUNT(*)
         FROM revlog
-        WHERE id > strftime('%s','now','-30 days')*1000
-        GROUP BY day
-    """)
+        WHERE id >= ?
+        GROUP BY strftime('%Y-%m-%d', id/1000, 'unixepoch')
+    """,
+        (start_ts,),
+    )
     stats["reviews_per_day"] = c.fetchall()
 
-    # --- Answer button counts (ease) ---
-    c.execute("SELECT ease, COUNT(*) FROM revlog GROUP BY ease")
-    stats["ease_counts"] = {ease: n for ease, n in c.fetchall()}
+    # --- Future due (next 30 days) ---
+    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_ts = int(today.timestamp())
+    end_ts = int((today + timedelta(days=30)).timestamp())
+    c.execute(
+        """
+        SELECT strftime('%Y-%m-%d', due, 'unixepoch'), COUNT(*)
+        FROM cards
+        WHERE due BETWEEN ? AND ?
+        GROUP BY strftime('%Y-%m-%d', due, 'unixepoch')
+    """,
+        (today_ts, end_ts),
+    )
+    stats["future_due"] = c.fetchall()
 
     conn.close()
     return stats
