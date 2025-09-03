@@ -172,6 +172,7 @@ def student_dashboard(username):
     history = get_review_history(username, days=30)
     deck_stats = get_deck_stats(username)
     full_stats = get_full_stats(username)
+    review_time = get_review_time(username, days=30)
 
     if not stats:
         flash(f"No stats available for {username}", "error")
@@ -183,6 +184,7 @@ def student_dashboard(username):
         history=history,
         deck_stats=deck_stats,
         full_stats=full_stats,
+        review_time=review_time,
         student=username,
     )
 
@@ -364,6 +366,36 @@ def get_full_stats(username):
 
     conn.close()
     return stats
+
+def get_review_time(username, days=30):
+    db_path = os.path.join(SYNC_BASE, username, "collection.anki2")
+    if not os.path.exists(db_path):
+        return []
+
+    conn = sqlite3.connect(db_path)
+    c = conn.cursor()
+
+    start = datetime.now() - timedelta(days=days)
+    start_ts = int(start.timestamp() * 1000)
+
+    # ivl field = interval, time field = ms spent (in old Anki it's in ms*10, but in newer it's ms)
+    c.execute(
+        """
+        SELECT (id/1000) as day, SUM(time)/1000.0 as seconds
+        FROM revlog
+        WHERE id >= ?
+        GROUP BY strftime('%Y-%m-%d', id/1000, 'unixepoch')
+    """,
+        (start_ts,),
+    )
+
+    rows = c.fetchall()
+    conn.close()
+
+    return [
+        {"date": datetime.fromtimestamp(ts).strftime("%Y-%m-%d"), "seconds": sec}
+        for ts, sec in rows
+    ]
 
 
 if __name__ == "__main__":
