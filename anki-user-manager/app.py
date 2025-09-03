@@ -6,7 +6,8 @@ import subprocess
 from datetime import datetime, timedelta
 from functools import wraps
 from fsrs import Scheduler, Card, Rating, ReviewLog
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response
+from weasyprint import HTML
 
 
 app = Flask(__name__)
@@ -190,6 +191,36 @@ def student_dashboard(username):
         review_time=review_time["daily"],
         avg_time=review_time["avg_time"]
     )
+
+# Export statistics as PDF
+@app.route("/dashboard/<username>/export")
+@login_required
+def export_dashboard(username):
+    stats = get_student_stats(username)
+    history = get_review_history(username, days=30)
+    deck_stats = get_deck_stats(username)
+    review_time = get_review_time(username, days=30)
+    fsrs_stats = get_fsrs_stats(username)
+
+    html = render_template(
+        "student_dashboard.html",
+        stats=stats,
+        history=history,
+        deck_stats=deck_stats,
+        student=username,
+        review_time=review_time["daily"],
+        avg_time=review_time["avg_time"],
+        fsrs_stats=fsrs_stats,
+        export_mode=True,  # tells template to hide buttons
+    )
+
+    pdf = HTML(string=html).write_pdf()
+    response = make_response(pdf)
+    response.headers["Content-Type"] = "application/pdf"
+    response.headers["Content-Disposition"] = (
+        f"attachment; filename={username}_dashboard.pdf"
+    )
+    return response
 
 
 # --- Helpers ---

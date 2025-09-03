@@ -1,5 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
+
+{% if not export_mode %}
+<div class="d-flex justify-content-between mb-3">
+  <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">⬅ Back to Main Dashboard</a>
+  <a href="{{ url_for('export_dashboard', username=student) }}" class="btn btn-success">📄 Export as PDF</a>
+</div>
+{% endif %}
+
 <h2>📊 Stats for {{ student }}</h2>
 
 <div class="row">
