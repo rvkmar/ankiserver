@@ -21,13 +21,16 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 ADMIN_USER = "admin"
 ADMIN_PASS = "Ravi1981"  # TODO: replace with env var or hashed
 
+
 def login_required(f):
     @wraps(f)
     def wrapped(*args, **kwargs):
         if "logged_in" not in session:
             return redirect(url_for("login"))
         return f(*args, **kwargs)
+
     return wrapped
+
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -41,10 +44,12 @@ def login():
             flash("Invalid credentials", "danger")
     return render_template("login.html")
 
+
 @app.route("/logout")
 def logout():
     session.pop("logged_in", None)
     return redirect(url_for("login"))
+
 
 # --- User management helpers ---
 def load_users():
@@ -57,36 +62,39 @@ def load_users():
                     users.append((user, pwd))
     return users
 
+
 def save_users(users):
     with open(USERS_FILE, "w") as f:
         for user, pwd in users:
             f.write(f"{user}:{pwd}\n")
     subprocess.run(["sudo", "systemctl", "restart", "anki-sync"])
 
+
 # --- Dashboard (default page) ---
 @app.route("/")
 @login_required
 def dashboard():
     students = [u for u, _ in load_users()]
-    overview = []
+    stats_list = []
     history = {}
 
     for student in students:
         try:
             stats = get_student_stats(student)
             if stats:
-                overview.append({
-                    "student": student,
-                    "total": stats.get("total", 0),
-                    "due": stats.get("due", 0),
-                    "reviews_today": stats.get("reviews_today", 0),
-                })
-            # include review history
+                stats_list.append(
+                    {
+                        "username": student,
+                        "total_cards": stats.get("total", 0),
+                        "due_cards": stats.get("due", 0),
+                        "reviews_today": stats.get("reviews_today", 0),
+                    }
+                )
             history[student] = get_review_history(student, days=30)
         except Exception as e:
             print(f"⚠️ Error fetching stats for {student}: {e}")
 
-    return render_template("dashboard.html", overview=overview, history=history)
+    return render_template("dashboard.html", stats_list=stats_list, history=history)
 
 
 # --- Manage Users ---
@@ -94,6 +102,7 @@ def dashboard():
 @login_required
 def manage_users():
     return render_template("manage_users.html", users=load_users())
+
 
 @app.route("/add", methods=["POST"])
 @login_required
@@ -103,6 +112,7 @@ def add_user():
     save_users(users)
     return redirect(url_for("manage_users"))
 
+
 @app.route("/delete", methods=["POST"])
 @login_required
 def delete_user():
@@ -110,6 +120,7 @@ def delete_user():
     users = [(u, p) for u, p in load_users() if u != username]
     save_users(users)
     return redirect(url_for("manage_users"))
+
 
 # --- Push Deck ---
 @app.route("/push_deck", methods=["GET", "POST"])
@@ -137,6 +148,7 @@ def push_deck():
 
     return render_template("push_deck.html", students=students)
 
+
 # --- Logs ---
 @app.route("/logs")
 @login_required
@@ -149,6 +161,7 @@ def logs():
     except Exception as e:
         logs = f"⚠️ Error reading logs: {e}"
     return render_template("logs.html", logs=logs)
+
 
 # --- Student Dashboard ---
 @app.route("/dashboard/<username>")
@@ -167,8 +180,9 @@ def student_dashboard(username):
         stats=stats,
         history=history,
         deck_stats=deck_stats,
-        student=username
+        student=username,
     )
+
 
 # --- Helpers ---
 def get_student_stats(username):
@@ -190,11 +204,15 @@ def get_student_stats(username):
     today_start = int(today.timestamp() * 1000)
     tomorrow_start = int(tomorrow.timestamp() * 1000)
 
-    c.execute("SELECT COUNT(*) FROM revlog WHERE id BETWEEN ? AND ?", (today_start, tomorrow_start))
+    c.execute(
+        "SELECT COUNT(*) FROM revlog WHERE id BETWEEN ? AND ?",
+        (today_start, tomorrow_start),
+    )
     reviews_today = c.fetchone()[0] or 0
 
     conn.close()
     return {"total": total, "due": due, "reviews_today": reviews_today}
+
 
 def get_review_history(username, days=30):
     db_path = os.path.join(SYNC_BASE, username, "collection.anki2")
@@ -207,16 +225,23 @@ def get_review_history(username, days=30):
     start = datetime.now() - timedelta(days=days)
     start_ts = int(start.timestamp() * 1000)
 
-    c.execute("""
+    c.execute(
+        """
         SELECT (id/1000), COUNT(*)
         FROM revlog
         WHERE id >= ?
         GROUP BY strftime('%Y-%m-%d', id/1000, 'unixepoch')
-    """, (start_ts,))
+    """,
+        (start_ts,),
+    )
 
-    history = [{"date": datetime.fromtimestamp(ts).strftime("%Y-%m-%d"), "reviews": count} for ts, count in c.fetchall()]
+    history = [
+        {"day": datetime.fromtimestamp(ts).strftime("%Y-%m-%d"), "count": count}
+        for ts, count in c.fetchall()
+    ]
     conn.close()
     return history
+
 
 def get_deck_stats(username):
     db_path = os.path.join(SYNC_BASE, username, "collection.anki2")
@@ -248,24 +273,29 @@ def get_deck_stats(username):
         FROM cards
         GROUP BY did
     """):
-        c.execute("""
+        c.execute(
+            """
             SELECT COUNT(*)
             FROM revlog r
             JOIN cards c ON r.cid = c.id
             WHERE c.did = ? AND r.id BETWEEN ? AND ?
-        """, (did, today_start, tomorrow_start))
+        """,
+            (did, today_start, tomorrow_start),
+        )
         reviews_today = c.fetchone()[0]
 
-        deck_stats.append({
-            "deck": deck_map.get(int(did), f"Deck {did}"),
-            "total": total,
-            "due": due or 0,
-            "reviews_today": reviews_today
-        })
+        deck_stats.append(
+            {
+                "deck": deck_map.get(int(did), f"Deck {did}"),
+                "total": total,
+                "due": due or 0,
+                "reviews_today": reviews_today,
+            }
+        )
 
     conn.close()
     return deck_stats
 
+
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5000, debug=False)
-r
