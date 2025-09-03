@@ -80,103 +80,32 @@
   });
 
   // --- Line chart for review history ---
-   // 📈 Review Trends (Last 14 days)
-    const trendCtx = document.getElementById('trendChart').getContext('2d');
-
-    const trendLabels = [
-      {% for i in range(14) %}
-    "{{ (now - loop.index0*86400) | datetimeformat('%Y-%m-%d') }}",
-      {% endfor %}
-  ].reverse();  // ensures oldest → newest
-
-    const trendData = {
-      labels: trendLabels,
-      datasets: [
-        {% for user, rows in history.items() %}
-    {
-      label: "{{ user }}",
-        data: [{% for r in rows %} { { r.count } }, {% endfor %}],
-    borderColor: 'hsl({{ loop.index * 70 }}, 70%, 50%)',
-      backgroundColor: 'rgba(0,0,0,0)',
-        fill: false,
-          tension: 0.2
+  const trendCtx = document.getElementById('trendChart').getContext('2d');
+  const trendData = {
+    labels: [...new Set([{% for user, rows in history.items() %}{% for r in rows %}"{{ r.date }}", {% endfor %}{% endfor %}])],
+  datasets: [
+    {% for user, rows in history.items() %}
+  {
+    label: "{{ user }}",
+      data: [{% for r in rows %} { { r.reviews } }, {% endfor %}],
+  borderColor: 'hsl({{ loop.index * 70 }}, 70%, 50%)',
+    fill: false,
+      tension: 0.2
       },
-    {% endfor %}
+  {% endfor %}
     ]
   };
-
-    new Chart(trendCtx, {
-      type: 'line',
-      data: trendData,
-      options: {
-        responsive: true,
-        plugins: {
-          title: { display: true, text: 'Daily Reviews per Student' }
-        },
-        scales: {
-          y: { beginAtZero: true }
-        }
-      }
-    });
-
-    // 📊 Bar chart for Due Cards & Reviews Today
-    const ctx = document.getElementById('statsChart').getContext('2d');
-    const statsData = {
-      labels: [{% for s in stats_list %}"{{ s.username }}", {% endfor %}],
-    datasets: [
-      {
-        label: 'Due Cards',
-        data: [{% for s in stats_list %}{{ s.due_cards }}, {% endfor %}],
-      backgroundColor: 'rgba(255, 99, 132, 0.6)'
+  new Chart(trendCtx, {
+    type: 'line',
+    data: trendData,
+    options: {
+      responsive: true,
+      plugins: {
+        title: { display: true, text: 'Daily Reviews per Student' }
       },
-    {
-      label: 'Reviews Today',
-        data: [{% for s in stats_list %} { { s.reviews_today } }, {% endfor %}],
-    backgroundColor: 'rgba(54, 162, 235, 0.6)'
-      }
-    ]
-  };
-
-    new Chart(ctx, {
-      type: 'bar',
-      data: statsData,
-      options: {
-        responsive: true,
-        plugins: {
-          legend: { position: 'top' },
-          title: { display: true, text: 'Student Performance Overview' }
-        },
-        scales: {
-          y: { beginAtZero: true }
-        }
-      }
-    });
-  // const trendCtx = document.getElementById('trendChart').getContext('2d');
-  // const trendData = {
-  //   labels: [...new Set([{% for user, rows in history.items() %}{% for r in rows %}"{{ r.date }}", {% endfor %}{% endfor %}])],
-  // datasets: [
-  //   {% for user, rows in history.items() %}
-  // {
-  //   label: "{{ user }}",
-  //     data: [{% for r in rows %} { { r.reviews } }, {% endfor %}],
-  // borderColor: 'hsl({{ loop.index * 70 }}, 70%, 50%)',
-  //   fill: false,
-  //     tension: 0.2
-  //     },
-  // {% endfor %}
-  //   ]
-  // };
-  // new Chart(trendCtx, {
-  //   type: 'line',
-  //   data: trendData,
-  //   options: {
-  //     responsive: true,
-  //     plugins: {
-  //       title: { display: true, text: 'Daily Reviews per Student' }
-  //     },
-  //     scales: { y: { beginAtZero: true } }
-  //   }
-  // });
-// });
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+});
 </script>
 {% endblock %}

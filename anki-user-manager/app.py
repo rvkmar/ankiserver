@@ -82,14 +82,12 @@ def dashboard():
         try:
             stats = get_student_stats(student)
             if stats:
-                stats_list.append(
-                    {
-                        "username": student,
-                        "total_cards": stats.get("total", 0),
-                        "due_cards": stats.get("due", 0),
-                        "reviews_today": stats.get("reviews_today", 0),
-                    }
-                )
+                stats_list.append({
+                    "username": student,
+                    "total_cards": stats.get("total", 0),
+                    "due_cards": stats.get("due", 0),
+                    "reviews_today": stats.get("reviews_today", 0),
+                })
             # include review history
             history[student] = get_review_history(student, days=14)
         except Exception as e:
@@ -215,7 +213,7 @@ def get_student_stats(username):
     return {"total": total, "due": due, "reviews_today": reviews_today}
 
 
-def get_review_history(username, days=14):
+def get_review_history(username, days=30):
     db_path = os.path.join(SYNC_BASE, username, "collection.anki2")
     if not os.path.exists(db_path):
         return []
@@ -226,26 +224,21 @@ def get_review_history(username, days=14):
     start = datetime.now() - timedelta(days=days)
     start_ts = int(start.timestamp() * 1000)
 
-    # Query review counts
     c.execute(
         """
-        SELECT strftime('%Y-%m-%d', id/1000, 'unixepoch') as day, COUNT(*)
+        SELECT (id/1000), COUNT(*)
         FROM revlog
         WHERE id >= ?
-        GROUP BY day
+        GROUP BY strftime('%Y-%m-%d', id/1000, 'unixepoch')
     """,
         (start_ts,),
     )
 
-    rows = dict(c.fetchall())
+    history = [
+        {"day": datetime.fromtimestamp(ts).strftime("%Y-%m-%d"), "count": count}
+        for ts, count in c.fetchall()
+    ]
     conn.close()
-
-    # Fill missing days with 0
-    history = []
-    for i in range(days):
-        day = (start + timedelta(days=i)).strftime("%Y-%m-%d")
-        history.append({"day": day, "count": rows.get(day, 0)})
-
     return history
 
 
