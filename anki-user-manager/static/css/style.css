@@ -1,0 +1,42 @@
+body {
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+.container {
+  display: flex;
+  min-height: 100vh;
+}
+.sidebar {
+  width: 220px;
+  background: #2c3e50;
+  color: white;
+  padding: 20px;
+}
+.sidebar h2 {
+  margin-top: 0;
+}
+.sidebar ul {
+  list-style: none;
+  padding: 0;
+}
+.sidebar li {
+  margin: 15px 0;
+}
+.sidebar a {
+  color: white;
+  text-decoration: none;
+}
+.sidebar a:hover {
+  text-decoration: underline;
+}
+.content {
+  flex: 1;
+  padding: 20px;
+  background: #fff;
+}
+.flash-success { background: #d4edda; padding: 10px; margin: 10px 0; }
+.flash-error { background: #f8d7da; padding: 10px; margin: 10px 0; }
+.toggle-pass {
+  width: 36px;
+  text-align: center;
+}
+

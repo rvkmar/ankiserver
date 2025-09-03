@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Recent Logs</h2>
+<div class="card mx-auto" style="max-width: 75vw;">
+  <div class="card-body">
+    <pre id="logbox" class="bg-dark text-white p-3 rounded"
+         style="max-height:68vh; min-height:150px; font-size:0.9rem; overflow:auto; white-space:pre-wrap;">
+{{ logs }}
+    </pre>
+  </div>
+</div>
+
+<script>
+  // Auto-refresh every 10 seconds (adjust X as needed)
+  setInterval(() => {
+    fetch("{{ url_for('logs') }}")
+      .then(res => res.text())
+      .then(html => {
+        // Extract only the logs <pre> from the returned HTML
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, "text/html");
+        const newLogs = doc.querySelector("#logbox").innerHTML;
+        document.querySelector("#logbox").innerHTML = newLogs;
+      })
+      .catch(err => console.error("Log refresh error:", err));
+  }, 10000); // 10000 ms = 10 seconds
+</script>
+{% endblock %}
+

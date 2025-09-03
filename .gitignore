@@ -1,0 +1,17 @@
+# Logs
+*.log
+
+# Data
+anki-sync-data/
+
+# Virtual environment
+syncserver/
+
+# Editor/temporary files
+*.swp
+*.tmp
+*.pyc
+__pycache__/
+
+# Big tarballs
+

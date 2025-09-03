@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>📊 Statistics for {{ stats.username }}</h2>
+
+<div class="card mx-auto" style="max-width:600px;">
+  <div class="card-body">
+    <ul class="list-group">
+      <li class="list-group-item d-flex justify-content-between">
+        <span>Total Cards</span>
+        <strong>{{ stats.total_cards }}</strong>
+      </li>
+      <li class="list-group-item d-flex justify-content-between">
+        <span>Due Cards</span>
+        <strong>{{ stats.due_cards }}</strong>
+      </li>
+      <li class="list-group-item d-flex justify-content-between">
+        <span>Reviews Today</span>
+        <strong>{{ stats.reviews_today }}</strong>
+      </li>
+    </ul>
+  </div>
+</div>
+{% endblock %}
+
