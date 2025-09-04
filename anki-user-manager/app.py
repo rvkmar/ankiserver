@@ -23,7 +23,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # --- Simple Admin Auth ---
 ADMIN_USER = "admin"
-ADMIN_PASS = "$2b$12$wE8i6eepCsjfgVI9Dpjev.3d5IEAu0hPUF/j1Wj5TEq.ochOH1b4K"  # TODO: replace with env var or hashed
+ADMIN_PASS_HASH = "$2b$12$wE8i6eepCsjfgVI9Dpjev.3d5IEAu0hPUF/j1Wj5TEq.ochOH1b4K"  # TODO: replace with env var or hashed
 
 
 def login_required(f):
