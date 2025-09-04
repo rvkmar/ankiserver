@@ -6,7 +6,9 @@ import subprocess
 from datetime import datetime, timedelta
 from functools import wraps
 from fsrs import Scheduler, Card, Rating, ReviewLog
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask import Flask, render_template, request, redirect, url_for, flash, session #, jsonify
+import sqlite3, tempfile, pandas as pd
+# from ankipandas import Collection
 
 app = Flask(__name__)
 app.secret_key = "supersecret"  # TODO: change in production
@@ -199,28 +201,38 @@ def get_student_stats(username):
     if not os.path.exists(db_path):
         return None
 
-    conn = sqlite3.connect(db_path)
-    c = conn.cursor()
+    try:
+        # Copy to temp file (avoid DB lock)
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            tmp_path = tmp.name
+        shutil.copy(os.path, tmp_path)
+    
+        conn = sqlite3.connect(tmp_path)
+        # cards = pd.read_sql("SELECT * FROM cards", conn)
+        # revlog = pd.read_sql("SELECT * FROM revlog", conn)
+        c = conn.cursor()
 
-    c.execute("SELECT COUNT(*) FROM cards")
-    total = c.fetchone()[0] or 0
+        c.execute("SELECT COUNT(*) FROM cards")
+        total = c.fetchone()[0] or 0
 
-    c.execute("SELECT COUNT(*) FROM cards WHERE due <= strftime('%s','now')")
-    due = c.fetchone()[0] or 0
+        c.execute("SELECT COUNT(*) FROM cards WHERE due <= strftime('%s','now')")
+        due = c.fetchone()[0] or 0
 
-    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    tomorrow = today + timedelta(days=1)
-    today_start = int(today.timestamp() * 1000)
-    tomorrow_start = int(tomorrow.timestamp() * 1000)
+        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        tomorrow = today + timedelta(days=1)
+        today_start = int(today.timestamp() * 1000)
+        tomorrow_start = int(tomorrow.timestamp() * 1000)
 
-    c.execute(
-        "SELECT COUNT(*) FROM revlog WHERE id BETWEEN ? AND ?",
-        (today_start, tomorrow_start),
-    )
-    reviews_today = c.fetchone()[0] or 0
+        c.execute(
+            "SELECT COUNT(*) FROM revlog WHERE id BETWEEN ? AND ?",
+            (today_start, tomorrow_start),
+        )
+        reviews_today = c.fetchone()[0] or 0
 
-    conn.close()
-    return {"total": total, "due": due, "reviews_today": reviews_today}
+        conn.close()
+        os.remove(tmp_path)  # cleanup
+    finally:
+        return {"total": total, "due": due, "reviews_today": reviews_today}
 
 
 def get_review_history(username, days=30):
