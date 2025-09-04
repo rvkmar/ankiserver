@@ -1,55 +1,68 @@
-/* body {
-  font-family: "Segoe UI", Arial, sans-serif;
+/* Keep the password column rock-solid */
+.table.fixed {
+  table-layout: fixed;
 }
-.container {
-  display: flex;
-  min-height: 100vh;
+
+/* Password cell container */
+.pwd-cell {
+  position: relative;
+  min-width: 260px;
+  /* tune as you like */
 }
-.sidebar {
-  width: 220px;
-  background: #2c3e50;
-  color: white;
-  padding: 20px;
+
+/* The masked text span and the input share the same box model */
+.pwd-cell .pwd-mask,
+.pwd-cell .pwd-input {
+  display: block;
+  width: 100%;
+  padding-right: 2.25rem;
+  /* space for the eye button */
+  margin: 0;
+  /* avoid layout shift */
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  letter-spacing: 0.05em;
+  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.sidebar h2 {
-  margin-top: 0;
+
+/* If you're using a Bootstrap input for edit mode, match the padding */
+.pwd-cell .form-control.pwd-input {
+  padding-right: 2.25rem;
 }
-.sidebar ul {
-  list-style: none;
+
+/* Toggle button sits at a fixed spot inside the cell */
+.pwd-cell .toggle-pwd {
+  position: absolute;
+  right: .5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1.75rem;
+  height: 1.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  /* look like an icon, not a button */
+  background: transparent;
+  border: 0;
   padding: 0;
+  color: var(--bs-body-color);
+  opacity: .75;
+  transition: opacity .15s ease-in-out;
 }
-.sidebar li {
-  margin: 15px 0;
-}
-.sidebar a {
-  color: white;
-  text-decoration: none;
-}
-.sidebar a:hover {
-  text-decoration: underline;
-}
-.content {
-  flex: 1;
-  padding: 20px;
-  background: #fff;
-}
-.flash-success { background: #d4edda; padding: 10px; margin: 10px 0; }
-.flash-error { background: #f8d7da; padding: 10px; margin: 10px 0; }
-.toggle-pass {
-  width: 36px;
-  text-align: center;
-}
- */
 
- .toggle-pass {
-    position: relative;
-  }
+.pwd-cell .toggle-pwd:hover,
+.pwd-cell .toggle-pwd:focus {
+  opacity: 1;
+  outline: none;
+}
 
-  .toggle-pass i {
-    position: absolute;
-    top: 50%;
-    right: 10px;
-    transform: translateY(-50%);
-    cursor: pointer;
-    color: #888;
-  }
+/* Keep the icon size consistent */
+.pwd-cell .toggle-pwd .bi {
+  font-size: 1rem;
+  /* Bootstrap Icons */
+  line-height: 1;
+  pointer-events: none;
+}

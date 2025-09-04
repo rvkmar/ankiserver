@@ -30,11 +30,11 @@
       {% for user, password in users %}
         <tr>
           <td class="username">{{ user }}</td>
-          <td>
+          <td class="pwd-cell">
             <span class="password-mask">********</span>
             <span class="password-real d-none">{{ password }}</span>
             <button type="button" class="btn btn-sm btn-outline-secondary float-end toggle-pass">
-              <i class="bi bi-eye"></i>
+              <button class="toggle-pwd"> <i class="bi bi-eye"></i> </button>
             </button>
           </td>
           <td class="text-center">
@@ -122,7 +122,9 @@ document.querySelectorAll(".edit-user").forEach(btn => {
     row.querySelector(".toggle-pass").remove();
 
     row.children[1].innerHTML = `
-      <input type="password" class="form-control form-control-sm" value="${currentPass}">
+      <button class="toggle-pwd">
+      <input type="password" class="form-control form-control-sm pwd-input" value="${currentPass}">
+      </button>
     `;
 
     // Replace actions with Save/Cancel
