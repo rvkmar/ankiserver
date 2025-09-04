@@ -3,6 +3,7 @@ import json
 import sqlite3
 import shutil
 import subprocess
+import bcrypt
 from datetime import datetime, timedelta
 from functools import wraps
 from fsrs import Scheduler, Card, Rating, ReviewLog
@@ -22,7 +23,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # --- Simple Admin Auth ---
 ADMIN_USER = "admin"
-ADMIN_PASS = "Ravi1981"  # TODO: replace with env var or hashed
+ADMIN_PASS = "$2b$12$wE8i6eepCsjfgVI9Dpjev.3d5IEAu0hPUF/j1Wj5TEq.ochOH1b4K"  # TODO: replace with env var or hashed
 
 
 def login_required(f):
@@ -35,12 +36,27 @@ def login_required(f):
     return wrapped
 
 
+# @app.route("/login", methods=["GET", "POST"])
+# def login():
+#     if request.method == "POST":
+#         user = request.form["username"]
+#         pw = request.form["password"]
+
+#         if user == ADMIN_USER and bcrypt.checkpw(pw.encode("utf-8"), ADMIN_PASS_HASH.encode("utf-8")):
+#             session["logged_in"] = True
+#             return redirect(url_for("dashboard"))
+#         else:
+#             flash("Invalid credentials", "danger")
+#     return render_template("login.html")
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
         user = request.form["username"]
         pw = request.form["password"]
-        if user == ADMIN_USER and pw == ADMIN_PASS:
+
+        if user == ADMIN_USER and bcrypt.checkpw(
+            pw.encode("utf-8"), ADMIN_PASS_HASH.encode("utf-8")
+        ):
             session["logged_in"] = True
             return redirect(url_for("dashboard"))
         else:
