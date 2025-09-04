@@ -1,68 +1,23 @@
-/* Keep the password column rock-solid */
-.table.fixed {
+/* Force consistent table layout */
+table.table {
   table-layout: fixed;
-}
-
-/* Password cell container */
-.pwd-cell {
-  position: relative;
-  min-width: 260px;
-  /* tune as you like */
-}
-
-/* The masked text span and the input share the same box model */
-.pwd-cell .pwd-mask,
-.pwd-cell .pwd-input {
-  display: block;
   width: 100%;
-  padding-right: 2.25rem;
-  /* space for the eye button */
-  margin: 0;
-  /* avoid layout shift */
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  letter-spacing: 0.05em;
-  line-height: 1.5;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-/* If you're using a Bootstrap input for edit mode, match the padding */
-.pwd-cell .form-control.pwd-input {
-  padding-right: 2.25rem;
+/* Password column fixed width */
+table.table td:nth-child(2),
+table.table th:nth-child(2) {
+  width: 250px;
+  /* adjust as needed */
+  position: relative;
 }
 
-/* Toggle button sits at a fixed spot inside the cell */
-.pwd-cell .toggle-pwd {
-  position: absolute;
-  right: .5rem;
+/* Ensure toggle button sits at the right end of the password cell */
+.toggle-pass {
+  position: absolute !important;
+  right: 0.5rem;
   top: 50%;
   transform: translateY(-50%);
-  width: 1.75rem;
-  height: 1.75rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-
-  /* look like an icon, not a button */
-  background: transparent;
-  border: 0;
-  padding: 0;
-  color: var(--bs-body-color);
-  opacity: .75;
-  transition: opacity .15s ease-in-out;
-}
-
-.pwd-cell .toggle-pwd:hover,
-.pwd-cell .toggle-pwd:focus {
-  opacity: 1;
-  outline: none;
-}
-
-/* Keep the icon size consistent */
-.pwd-cell .toggle-pwd .bi {
-  font-size: 1rem;
-  /* Bootstrap Icons */
-  line-height: 1;
-  pointer-events: none;
+  z-index: 2;
+  padding: 0.25rem 0.4rem;
 }

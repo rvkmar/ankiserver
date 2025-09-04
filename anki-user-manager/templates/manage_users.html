@@ -30,11 +30,11 @@
       {% for user, password in users %}
         <tr>
           <td class="username">{{ user }}</td>
-          <td class="pwd-cell">
+          <td>
             <span class="password-mask">********</span>
             <span class="password-real d-none">{{ password }}</span>
             <button type="button" class="btn btn-sm btn-outline-secondary float-end toggle-pass">
-              <button class="toggle-pwd"> <i class="bi bi-eye"></i> </button>
+              <i class="bi bi-eye"></i>
             </button>
           </td>
           <td class="text-center">
@@ -76,7 +76,7 @@
   </div>
 </div>
 
-<script>
+<!-- <script>
 // Toggle password visibility
 document.querySelectorAll(".toggle-pass").forEach(btn => {
   btn.addEventListener("click", () => {
@@ -122,9 +122,7 @@ document.querySelectorAll(".edit-user").forEach(btn => {
     row.querySelector(".toggle-pass").remove();
 
     row.children[1].innerHTML = `
-      <button class="toggle-pwd">
-      <input type="password" class="form-control form-control-sm pwd-input" value="${currentPass}">
-      </button>
+      <input type="password" class="form-control form-control-sm" value="${currentPass}">
     `;
 
     // Replace actions with Save/Cancel
@@ -172,6 +170,123 @@ document.getElementById("confirmDeleteBtn").addEventListener("click", function (
     body: `username=${encodeURIComponent(deleteUser)}`
   }).then(() => location.reload());
 });
+</script> -->
+<script>
+  // Toggle password visibility
+  function bindToggleEvents() {
+    document.querySelectorAll(".toggle-pass").forEach(btn => {
+      btn.onclick = () => {
+        const row = btn.closest("td");
+        const mask = row.querySelector(".password-mask");
+        const real = row.querySelector(".password-real");
+        const icon = btn.querySelector("i");
+
+        if (!mask || !real) return; // skip if editing
+
+        if (mask.classList.contains("d-none")) {
+          mask.classList.remove("d-none");
+          real.classList.add("d-none");
+          icon.classList.remove("bi-eye-slash");
+          icon.classList.add("bi-eye");
+        } else {
+          mask.classList.add("d-none");
+          real.classList.remove("d-none");
+          icon.classList.remove("bi-eye");
+          icon.classList.add("bi-eye-slash");
+        }
+      };
+    });
+  }
+  bindToggleEvents();
+
+  // Inline edit (username & password)
+  document.querySelectorAll(".edit-user").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const row = btn.closest("tr");
+      const usernameCell = row.querySelector(".username");
+      const passMask = row.querySelector(".password-mask");
+      const passReal = row.querySelector(".password-real");
+      const toggleBtn = row.querySelector(".toggle-pass");
+      const actionsCell = row.querySelector("td:last-child");
+
+      const currentUser = usernameCell.innerText.trim();
+      const currentPass = passReal.innerText.trim();
+
+      // Replace with input fields
+      usernameCell.innerHTML = `<input type="text" class="form-control form-control-sm" value="${currentUser}">`;
+
+      row.children[1].innerHTML = `
+      <div class="position-relative">
+        <input type="password" class="form-control form-control-sm pwd-input" value="${currentPass}" style="padding-right:2rem;">
+        <button type="button" class="btn btn-sm btn-outline-secondary toggle-pass" 
+                style="position:absolute; right:0.25rem; top:50%; transform:translateY(-50%);">
+          <i class="bi bi-eye"></i>
+        </button>
+      </div>
+    `;
+
+      // Replace actions with Save/Cancel
+      actionsCell.innerHTML = `
+      <button type="button" class="btn btn-sm btn-success save-user">Save</button>
+      <button type="button" class="btn btn-sm btn-secondary cancel-edit">Cancel</button>
+    `;
+
+      // Bind new eye toggle for the edit input
+      const newToggle = row.querySelector(".toggle-pass");
+      const pwdInput = row.querySelector(".pwd-input");
+      newToggle.onclick = () => {
+        const icon = newToggle.querySelector("i");
+        if (pwdInput.type === "password") {
+          pwdInput.type = "text";
+          icon.classList.remove("bi-eye");
+          icon.classList.add("bi-eye-slash");
+        } else {
+          pwdInput.type = "password";
+          icon.classList.remove("bi-eye-slash");
+          icon.classList.add("bi-eye");
+        }
+      };
+
+      // Save handler
+      actionsCell.querySelector(".save-user").addEventListener("click", () => {
+        const newUser = usernameCell.querySelector("input").value;
+        const newPass = pwdInput.value;
+
+        fetch("/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: `username=${encodeURIComponent(currentUser)}`
+        }).then(() => {
+          fetch("/add", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: `username=${encodeURIComponent(newUser)}&password=${encodeURIComponent(newPass)}`
+          }).then(() => location.reload());
+        });
+      });
+
+      // Cancel handler
+      actionsCell.querySelector(".cancel-edit").addEventListener("click", () => location.reload());
+    });
+  });
+
+  // Delete modal handling
+  let deleteUser = "";
+  const deleteModal = document.getElementById("deleteModal");
+  deleteModal.addEventListener("show.bs.modal", function (event) {
+    const button = event.relatedTarget;
+    deleteUser = button.getAttribute("data-username");
+    document.getElementById("delete-username").textContent = deleteUser;
+  });
+
+  document.getElementById("confirmDeleteBtn").addEventListener("click", function () {
+    fetch("/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `username=${encodeURIComponent(deleteUser)}`
+    }).then(() => location.reload());
+  });
 </script>
+
 {% endblock %}
 
