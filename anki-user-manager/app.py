@@ -77,7 +77,7 @@ def save_users(users):
 def dashboard():
     students = [u for u, _ in load_users()]
     stats_list = []
-    history = {}
+    # history = {}
 
     for student in students:
         try:
@@ -92,11 +92,11 @@ def dashboard():
                     }
                 )
             # include review history
-            history[student] = get_review_history(student, days=14)
+            # history[student] = get_review_history(student, days=14)
         except Exception as e:
             print(f"⚠️ Error fetching stats for {student}: {e}")
 
-    return render_template("dashboard.html", stats_list=stats_list, history=history)
+    return render_template("dashboard.html", stats_list=stats_list) #, history=history)
 
 
 # --- Manage Users ---
