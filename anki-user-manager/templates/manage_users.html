@@ -84,10 +84,22 @@ document.querySelectorAll(".toggle-pass").forEach(btn => {
     const mask = row.querySelector(".password-mask");
     const real = row.querySelector(".password-real");
     const icon = btn.querySelector("i");
-    mask.classList.toggle("d-none");
-    real.classList.toggle("d-none");
-    icon.classList.toggle("bi-eye");
-    icon.classList.toggle("bi-eye-slash");
+
+    if (mask.classList.contains("d-none")) {
+      mask.classList.remove("d-none");
+      real.classList.add("d-none");
+      icon.classList.remove("bi-eye-slash");
+      icon.classList.add("bi-eye");
+    } else {
+      mask.classList.add("d-none");
+      real.classList.remove("d-none");
+      icon.classList.remove("bi-eye");
+      icon.classList.add("bi-eye-slash");
+    }
+    // mask.classList.toggle("d-none");
+    // real.classList.toggle("d-none");
+    // icon.classList.toggle("bi-eye");
+    // icon.classList.toggle("bi-eye-slash");
   });
 });
 
