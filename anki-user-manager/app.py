@@ -383,17 +383,21 @@ def get_deck_stats(username):
         #     print(f"⚠️ Deck map error for {username}: {e}")
         c.execute("SELECT decks FROM col")
         row = c.fetchone()
-        if row and row[0].strip():
+        if row and row[0] and row[0].strip():
+            try:
                 raw_json = row[0]
                 logger.info(f"RAW decks JSON for {username}: {raw_json[:300]}...")
-        try:
                 decks_json = json.loads(raw_json)
                 logger.info(f"Deck keys for {username}: {list(decks_json.keys())}")
                 for key, info in decks_json.items():
                     logger.info(f"Deck {key} → {info.get('name')}")
+                    # keys in JSON are strings, but did in cards is integer
                     deck_map[int(key)] = info.get("name", f"Deck {key}")
-        except Exception as e:
+            except Exception as e:
                 logger.error(f"Deck JSON parse error for {username}: {e}")
+        else:
+            logger.warning(f"No decks JSON found for {username}")
+
 
         # if not deck_map:
         #     # fallback: at least one default deck
