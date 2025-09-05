@@ -187,7 +187,10 @@ def student_dashboard(username):
         review_time = get_review_time(username, days=30) or {"daily": [], "avg_time": 0}
 
         # For now, FSRS stats are not implemented
-        fsrs_stats = None
+        # fsrs_stats = None
+
+        # ✅ For now, inject dummy FSRS data
+        fsrs_stats = get_dummy_fsrs_stats(username)
 
     except Exception as e:
         import traceback
@@ -507,6 +510,17 @@ def get_fsrs_stats(username):
             sum(1 for _, _, ease_, _, _, _, _ in rows if ease_ > 1) / len(rows) * 100, 2
         ),
     }
-
+    
+# Dummy FSRS function for testing
+def get_dummy_fsrs_stats(username):
+    """Return fake FSRS stats for demo/testing."""
+    return {
+        "avg_difficulty": 2.5,
+        "avg_stability": 15,
+        "avg_retrievability": 0.85,
+        "true_retention": 92.3,
+    }
+    
+# --- Run App ---
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5000, debug=False)
