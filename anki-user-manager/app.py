@@ -428,17 +428,89 @@ def get_review_history(username, days=30):
 #     return deck_stats
 
 # third
+# def get_deck_stats(username):
+#     tmp_path = safe_copy_db(username)
+#     if not tmp_path:
+#         return []
+
+#     deck_stats, deck_map = {}, {}
+#     try:
+#         conn = sqlite3.connect(tmp_path)
+#         c = conn.cursor()
+
+#         # --- Try col.decks JSON first ---
+#         try:
+#             c.execute("SELECT decks FROM col")
+#             row = c.fetchone()
+#             if row and row[0] and row[0].strip():
+#                 decks_json = json.loads(row[0])
+#                 for key, info in decks_json.items():
+#                     deck_map[int(key)] = info.get("name", f"Deck {key}")
+#         except Exception as e:
+#             logger.error(f"Deck JSON parse error for {username}: {e}")
+
+#         # --- Fallback: legacy 'decks' table ---
+#         if not deck_map:
+#             try:
+#                 c.execute("SELECT id, name FROM decks")
+#                 for did, name in c.fetchall():
+#                     deck_map[int(did)] = name
+#                 logger.info(f"Using legacy decks table for {username}: {deck_map}")
+#             except Exception as e:
+#                 logger.error(f"Legacy decks table error for {username}: {e}")
+
+#         # --- Initialize stats ---
+#         for did, name in deck_map.items():
+#             deck_stats[did] = {"deck": name, "total": 0, "due": 0, "reviews_today": 0}
+
+#         # Count cards per deck
+#         c.execute(
+#             "SELECT did, COUNT(*), SUM(due <= strftime('%s','now')) FROM cards GROUP BY did"
+#         )
+#         for did, total, due in c.fetchall():
+#             if did in deck_stats:
+#                 deck_stats[did]["total"] = total
+#                 deck_stats[did]["due"] = due or 0
+
+#         # Reviews today
+#         today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+#         tomorrow = today + timedelta(days=1)
+#         today_start = int(today.timestamp() * 1000)
+#         tomorrow_start = int(tomorrow.timestamp() * 1000)
+
+#         c.execute(
+#             """
+#             SELECT c.did, COUNT(*)
+#             FROM revlog r
+#             JOIN cards c ON r.cid = c.id
+#             WHERE r.id BETWEEN ? AND ?
+#             GROUP BY c.did
+#         """,
+#             (today_start, tomorrow_start),
+#         )
+#         for did, count in c.fetchall():
+#             if did in deck_stats:
+#                 deck_stats[did]["reviews_today"] = count
+
+#     finally:
+#         conn.close()
+#         os.remove(tmp_path)
+
+#     return list(deck_stats.values())
+
+# Fourth make deck stats more robust with list
 def get_deck_stats(username):
     tmp_path = safe_copy_db(username)
     if not tmp_path:
         return []
 
-    deck_stats, deck_map = {}, {}
+    stats = []
+    deck_map = {}
     try:
         conn = sqlite3.connect(tmp_path)
         c = conn.cursor()
 
-        # --- Try col.decks JSON first ---
+        # --- Try col.decks JSON ---
         try:
             c.execute("SELECT decks FROM col")
             row = c.fetchone()
@@ -446,33 +518,38 @@ def get_deck_stats(username):
                 decks_json = json.loads(row[0])
                 for key, info in decks_json.items():
                     deck_map[int(key)] = info.get("name", f"Deck {key}")
-        except Exception as e:
-            logger.error(f"Deck JSON parse error for {username}: {e}")
+        except Exception:
+            pass
 
-        # --- Fallback: legacy 'decks' table ---
+        # --- Fallback: legacy decks table ---
         if not deck_map:
             try:
                 c.execute("SELECT id, name FROM decks")
                 for did, name in c.fetchall():
                     deck_map[int(did)] = name
-                logger.info(f"Using legacy decks table for {username}: {deck_map}")
-            except Exception as e:
-                logger.error(f"Legacy decks table error for {username}: {e}")
+            except Exception:
+                pass
 
-        # --- Initialize stats ---
+        # --- Initialize stats for all decks ---
         for did, name in deck_map.items():
-            deck_stats[did] = {"deck": name, "total": 0, "due": 0, "reviews_today": 0}
+            stats.append(
+                {"deck": name, "total": 0, "due": 0, "reviews_today": 0, "id": did}
+            )
 
-        # Count cards per deck
+        # --- Update counts from cards ---
         c.execute(
             "SELECT did, COUNT(*), SUM(due <= strftime('%s','now')) FROM cards GROUP BY did"
         )
-        for did, total, due in c.fetchall():
-            if did in deck_stats:
-                deck_stats[did]["total"] = total
-                deck_stats[did]["due"] = due or 0
+        counts = {did: (total, due or 0) for did, total, due in c.fetchall()}
 
-        # Reviews today
+        for s in stats:
+            did = s["id"]
+            if did in counts:
+                total, due = counts[did]
+                s["total"] = total
+                s["due"] = due
+
+        # --- Update reviews today ---
         today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         tomorrow = today + timedelta(days=1)
         today_start = int(today.timestamp() * 1000)
@@ -488,15 +565,28 @@ def get_deck_stats(username):
         """,
             (today_start, tomorrow_start),
         )
-        for did, count in c.fetchall():
-            if did in deck_stats:
-                deck_stats[did]["reviews_today"] = count
+        review_counts = {did: cnt for did, cnt in c.fetchall()}
+
+        for s in stats:
+            did = s["id"]
+            if did in review_counts:
+                s["reviews_today"] = review_counts[did]
+
+        # --- Add total row ---
+        total_row = {
+            "deck": "Total (All Decks)",
+            "total": sum(s["total"] for s in stats),
+            "due": sum(s["due"] for s in stats),
+            "reviews_today": sum(s["reviews_today"] for s in stats),
+            "id": -1,
+        }
+        stats.append(total_row)
 
     finally:
         conn.close()
         os.remove(tmp_path)
 
-    return list(deck_stats.values())
+    return stats
 
 
 def get_full_stats(username):
