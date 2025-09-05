@@ -262,7 +262,7 @@ def safe_copy_db(username):
     Returns the path to the copy, or None if it fails.
     """
     try:
-        src_path = f"/home/ubuntu/ankiserver/data/{username}/collection.anki2"
+        src_path = f"/home/ubuntu/ankiserver/anki-sync-data/{username}/collection.anki2"
         if not os.path.exists(src_path):
             return None
 
