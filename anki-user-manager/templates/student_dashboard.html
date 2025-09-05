@@ -8,7 +8,11 @@
     <div class="card mb-4">
       <div class="card-body">
         <h5>Card Types</h5>
+        {% if full_stats.card_types %}
         <canvas id="cardTypeChart" height="200"></canvas>
+        {% else %}
+        <p>No card type data available.</p>
+        {% endif %}
       </div>
     </div>
   </div>
@@ -18,7 +22,11 @@
     <div class="card mb-4">
       <div class="card-body">
         <h5>Answer Buttons</h5>
+        {% if full_stats.ease_counts %}
         <canvas id="easeChart" height="200"></canvas>
+        {% else %}
+        <p>No answer button data available.</p>
+        {% endif %}
       </div>
     </div>
   </div>
@@ -28,7 +36,11 @@
 <div class="card mb-4">
   <div class="card-body">
     <h5>Reviews per Day (last 30 days)</h5>
+    {% if full_stats.reviews_per_day %}
     <canvas id="reviewChart" height="120"></canvas>
+    {% else %}
+    <p>No review history found.</p>
+    {% endif %}
   </div>
 </div>
 
@@ -36,7 +48,11 @@
 <div class="card mb-4">
   <div class="card-body">
     <h5>📅 Backlog (Future Due Cards, next 30 days)</h5>
+    {% if full_stats.future_due %}
     <canvas id="backlogChart" height="120"></canvas>
+    {% else %}
+    <p>No due cards scheduled.</p>
+    {% endif %}
   </div>
 </div>
 
@@ -44,7 +60,11 @@
 <div class="card mb-4">
   <div class="card-body">
     <h5>⏳ Intervals Histogram</h5>
+    {% if full_stats.intervals %}
     <canvas id="intervalsChart" height="120"></canvas>
+    {% else %}
+    <p>No interval data available.</p>
+    {% endif %}
   </div>
 </div>
 
@@ -53,7 +73,11 @@
   <div class="card-body">
     <h4>⏱️ Review Time (Last 30 Days)</h4>
     <p><strong>Average Review Time per Card:</strong> {{ avg_time }} seconds</p>
+    {% if review_time %}
     <canvas id="timeChart" height="120"></canvas>
+    {% else %}
+    <p>No review time recorded.</p>
+    {% endif %}
   </div>
 </div>
 
@@ -82,108 +106,87 @@
   </div>
 </div>
 
+<!-- Review Trends -->
 <div class="card mx-auto mt-4" style="max-width:900px;">
   <div class="card-body">
-    <h4>📈 Review Trends (Last 14 days)</h4>
+    <h4>📈 Review Trends (Last 30 days)</h4>
+    {% if history %}
     <canvas id="trendChart" height="150"></canvas>
+    {% else %}
+    <p>No review trends found.</p>
+    {% endif %}
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
   document.addEventListener("DOMContentLoaded", function () {
-    // --- Bar chart for due/reviews ---
+    // --- Bar chart for due/reviews (single student) ---
     const ctx = document.getElementById('statsChart').getContext('2d');
-    const data = {
-      labels: [{% for s in stats_list %}"{{ s.username }}", {% endfor %}],
-    datasets: [
-    {
-      label: 'Due Cards',
-      data: [{% for s in stats_list %}{{ s.due_cards }}, {% endfor %}],
-    backgroundColor: 'rgba(255, 99, 132, 0.6)'
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ["{{ student }}"],
+        datasets: [
+          {
+            label: 'Due Cards',
+            data: [{{ stats.due }}],
+        backgroundColor: 'rgba(255, 99, 132, 0.6)'
       },
-    {
-      label: 'Reviews Today',
-      data: [{% for s in stats_list %}{{ s.reviews_today }}, {% endfor %}],
-    backgroundColor: 'rgba(54, 162, 235, 0.6)'
-      }
-    ]
-  };
-  new Chart(ctx, {
-    type: 'bar',
-    data: data,
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { position: 'top' },
-        title: { display: true, text: 'Student Performance Overview' }
+          {
+        label: 'Reviews Today',
+        data: [{{ stats.reviews_today }}],
+      backgroundColor: 'rgba(54, 162, 235, 0.6)'
+          }
+        ]
       },
-      scales: { y: { beginAtZero: true } }
-    }
-  });
+    options: { responsive: true, scales: { y: { beginAtZero: true } } }
+    });
 
+  {% if history %}
   // --- Line chart for review history ---
   const trendCtx = document.getElementById('trendChart').getContext('2d');
-  const trendData = {
-    labels: [...new Set([{% for user, rows in history.items() %}{% for r in rows %}"{{ r.date }}", {% endfor %}{% endfor %}])],
-  datasets: [
-    {% for user, rows in history.items() %}
-  {
-    label: "{{ user }}",
-      data: [{% for r in rows %} { { r.reviews } }, {% endfor %}],
-  borderColor: 'hsl({{ loop.index * 70 }}, 70%, 50%)',
-    fill: false,
-      tension: 0.2
-      },
-  {% endfor %}
-    ]
-  };
   new Chart(trendCtx, {
     type: 'line',
-    data: trendData,
-    options: {
-      responsive: true,
-      plugins: {
-        title: { display: true, text: 'Daily Reviews per Student' }
+    data: {
+      labels: [{% for r in history %}"{{ r.day }}",{% endfor %}],
+    datasets: [{
+      label: "{{ student }}",
+      data: [{% for r in history %}{{ r.count }}, {% endfor %}],
+    borderColor: 'hsl(210, 70%, 50%)',
+    fill: false,
+    tension: 0.2
+        }]
       },
-      scales: { y: { beginAtZero: true } }
-    }
+    options: { responsive: true, scales: { y: { beginAtZero: true } } }
+    });
+  {% endif %}
   });
-});
 </script>
 
+{% if review_time %}
 <script>
+  // --- Review Time Chart ---
   const timeCtx = document.getElementById('timeChart').getContext('2d');
-
-  const timeData = {
-    labels: [{% for r in review_time %}"{{ r.date }}", {% endfor %}],
-  datasets: [{
-    label: "Seconds Spent",
-    data: [{% for r in review_time %}{{ r.seconds | round(2) }}, {% endfor %}],
-    backgroundColor: 'rgba(153, 102, 255, 0.6)',
-      borderColor: 'rgba(153, 102, 255, 1)',
-        borderWidth: 2,
-          fill: true,
-            tension: 0.2
-    }]
-  };
-
   new Chart(timeCtx, {
     type: 'line',
-    data: timeData,
-    options: {
-      responsive: true,
-      plugins: {
-        title: { display: true, text: 'Review Time per Day (seconds)' }
-      },
-      scales: {
-        y: { beginAtZero: true }
-      }
-    }
+    data: {
+      labels: [{% for r in review_time %}"{{ r.date }}",{% endfor %}],
+    datasets: [{
+      label: "Seconds Spent",
+      data: [{% for r in review_time %}{{ r.seconds | round(2) }}, {% endfor %}],
+    backgroundColor: 'rgba(153, 102, 255, 0.6)',
+    borderColor: 'rgba(153, 102, 255, 1)',
+    fill: true,
+    tension: 0.2
+      }]
+    },
+    options: { responsive: true, scales: { y: { beginAtZero: true } } }
   });
 </script>
+{% endif %}
 
-
+{% if full_stats.intervals %}
 <script>
   // --- Intervals Histogram ---
   const intervalsCtx = document.getElementById('intervalsChart').getContext('2d');
@@ -191,24 +194,14 @@
     type: 'bar',
     data: {
       labels: [{% for lbl, cnt in full_stats.intervals %}"{{ lbl }}",{% endfor %}],
-    datasets: [{
-      label: "Cards",
-      data: [{% for lbl, cnt in full_stats.intervals %}{{ cnt }}, {% endfor %}],
-    backgroundColor: "rgba(153, 102, 255, 0.6)"
-    }]
-  },
-    options: {
-    responsive: true,
-    plugins: {
-      title: { display: true, text: "Card Distribution by Interval" }
+    datasets: [{ label: "Cards", data: [{% for lbl, cnt in full_stats.intervals %}{{ cnt }}, {% endfor %}], backgroundColor: "rgba(153, 102, 255, 0.6)" }]
     },
-    scales: {
-      y: { beginAtZero: true }
-    }
-  }
-});
+    options: { responsive: true, scales: { y: { beginAtZero: true } } }
+  });
 </script>
+{% endif %}
 
+{% if full_stats.future_due %}
 <script>
   // --- Backlog (Future Due) ---
   const backlogCtx = document.getElementById('backlogChart').getContext('2d');
@@ -216,23 +209,14 @@
     type: 'bar',
     data: {
       labels: [{% for d, c in full_stats.future_due %}"{{ d }}",{% endfor %}],
-    datasets: [{
-      label: "Due Cards",
-      data: [{% for d, c in full_stats.future_due %}{{ c }}, {% endfor %}],
-    backgroundColor: "rgba(75, 192, 192, 0.6)"
-    }]
-  },
-    options: {
-    responsive: true,
-    scales: { y: { beginAtZero: true } },
-    plugins: {
-      title: { display: true, text: "Future Scheduled Cards" }
-    }
-  }
-});
+    datasets: [{ label: "Due Cards", data: [{% for d, c in full_stats.future_due %}{{ c }}, {% endfor %}], backgroundColor: "rgba(75, 192, 192, 0.6)" }]
+    },
+    options: { responsive: true, scales: { y: { beginAtZero: true } } }
+  });
 </script>
+{% endif %}
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% if full_stats.card_types %}
 <script>
   // --- Card Types Pie Chart ---
   const cardTypeCtx = document.getElementById('cardTypeChart').getContext('2d');
@@ -244,15 +228,18 @@
         data: [
           {{ full_stats.card_types.get(0, 0) }},
       {{ full_stats.card_types.get(1, 0) }},
-        {{ full_stats.card_types.get(2, 0) }},
+          {{ full_stats.card_types.get(2, 0) }},
     {{ full_stats.card_types.get(3, 0) }}
-      ],
+        ],
     backgroundColor: ['#ff6384', '#36a2eb', '#ffce56', '#4bc0c0']
-    }]
-  },
-    options: { responsive: true }
-});
+      }]
+    }
+  });
+</script>
+{% endif %}
 
+{% if full_stats.ease_counts %}
+<script>
   // --- Answer Buttons Pie Chart ---
   const easeCtx = document.getElementById('easeChart').getContext('2d');
   new Chart(easeCtx, {
@@ -263,33 +250,29 @@
         data: [
           {{ full_stats.ease_counts.get(1, 0) }},
       {{ full_stats.ease_counts.get(2, 0) }},
-        {{ full_stats.ease_counts.get(3, 0) }},
+          {{ full_stats.ease_counts.get(3, 0) }},
     {{ full_stats.ease_counts.get(4, 0) }}
-      ],
+        ],
     backgroundColor: ['#ff6384', '#ff9f40', '#36a2eb', '#4bc0c0']
-    }]
-  },
-    options: { responsive: true }
-});
+      }]
+    }
+  });
+</script>
+{% endif %}
 
+{% if full_stats.reviews_per_day %}
+<script>
   // --- Reviews per Day (last 30 days) ---
   const reviewCtx = document.getElementById('reviewChart').getContext('2d');
   new Chart(reviewCtx, {
     type: 'line',
     data: {
       labels: [{% for d, c in full_stats.reviews_per_day %}"{{ d }}",{% endfor %}],
-    datasets: [{
-      label: "Reviews",
-      data: [{% for d, c in full_stats.reviews_per_day %}{{ c }}, {% endfor %}],
-    borderColor: "#36a2eb",
-    fill: true,
-    tension: 0.2
-    }]
-  },
-    options: {
-    responsive: true,
-    scales: { y: { beginAtZero: true } }
-  }
-});
+    datasets: [{ label: "Reviews", data: [{% for d, c in full_stats.reviews_per_day %}{{ c }}, {% endfor %}], borderColor: "#36a2eb", tension: 0.2 }]
+    },
+    options: { responsive: true, scales: { y: { beginAtZero: true } } }
+  });
 </script>
+{% endif %}
+
 {% endblock %}
