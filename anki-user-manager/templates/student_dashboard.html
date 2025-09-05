@@ -18,7 +18,7 @@
       </thead>
       <tbody>
         {% for d in deck_stats %}
-        <tr>
+        <tr class="{{ 'total-row' if d.is_total else '' }}">
           <td>{{ d.deck }}</td>
           <td>{{ d.total }}</td>
           <td>{{ d.due }}</td>
