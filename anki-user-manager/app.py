@@ -221,7 +221,7 @@ def get_student_stats(username):
         # Copy to temp file (avoid DB lock)
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
             tmp_path = tmp.name
-        shutil.copy(os.path, tmp_path)
+        shutil.copy(db_path, tmp_path)
     
         conn = sqlite3.connect(tmp_path)
         # cards = pd.read_sql("SELECT * FROM cards", conn)
