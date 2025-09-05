@@ -372,9 +372,9 @@ def get_deck_stats(username):
             row = c.fetchone()
             if row and row[0].strip():
                 decks_json = json.loads(row[0])
-                for did, info in decks_json.items():
-                    # JSON keys are strings → keep them as str
-                    deck_map[str(did)] = info.get("name", f"Deck {did}")
+                for key, info in decks_json.items():
+                    # JSON keys are strings, did is int in cards
+                    deck_map[int(key)] = info.get("name", f"Deck {key}")
         except Exception as e:
             print(f"⚠️ Deck map error for {username}: {e}")
 
@@ -404,10 +404,10 @@ def get_deck_stats(username):
                 except Exception:
                     pass
 
+                deck_name = deck_map.get(did, f"Deck {did}")
                 deck_stats.append(
                     {
-                        # 👇 Fix: look up using str(did)
-                        "deck": deck_map.get(str(did), f"Deck {did}"),
+                        "deck": deck_name,
                         "total": total,
                         "due": due or 0,
                         "reviews_today": reviews_today,
