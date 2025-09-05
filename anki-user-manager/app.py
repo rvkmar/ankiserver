@@ -1,6 +1,3 @@
-import logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 import os
 import json
 import sqlite3
@@ -372,17 +369,13 @@ def get_deck_stats(username):
         # --- Load deck map from col table ---
         try:
             c.execute("SELECT decks FROM col")
-row = c.fetchone()
-if row and row[0].strip():
-    try:
-        decks_json = json.loads(row[0])
-        logger.info(f"Deck JSON for {username}: {list(decks_json.keys())}")
-        for key, info in decks_json.items():
-            logger.info(f"Deck {key} → {info.get('name')}")
-            deck_map[int(key)] = info.get("name", f"Deck {key}")
-    except Exception as e:
-        logger.error(f"Deck JSON parse error for {username}: {e}")
-
+            row = c.fetchone()
+            if row and row[0].strip():
+                decks_json = json.loads(row[0])
+                for key, info in decks_json.items():
+                    deck_map[int(key)] = info.get("name", f"Deck {key}")
+        except Exception as e:
+            print(f"⚠️ Deck map error for {username}: {e}")
 
         if not deck_map:
             # fallback: at least one default deck
@@ -390,14 +383,12 @@ if row and row[0].strip():
 
         # --- Initialize stats for all decks ---
         for did, name in deck_map.items():
-            deck_stats.append(
-                {
-                    "deck": name,
-                    "total": 0,
-                    "due": 0,
-                    "reviews_today": 0,
-                }
-            )
+            deck_stats.append({
+                "deck": name,
+                "total": 0,
+                "due": 0,
+                "reviews_today": 0,
+            })
 
         # --- Add actual stats ---
         today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -405,25 +396,20 @@ if row and row[0].strip():
         today_start = int(today.timestamp() * 1000)
         tomorrow_start = int(tomorrow.timestamp() * 1000)
 
-        c.execute(
-            "SELECT did, COUNT(*), SUM(due <= strftime('%s','now')) FROM cards GROUP BY did"
-        )
+        c.execute("SELECT did, COUNT(*), SUM(due <= strftime('%s','now')) FROM cards GROUP BY did")
         for did, total, due in c.fetchall():
             for d in deck_stats:
                 if deck_map.get(did) == d["deck"]:
                     d["total"] = total
                     d["due"] = due or 0
 
-        c.execute(
-            """
+        c.execute("""
             SELECT c.did, COUNT(*)
             FROM revlog r
             JOIN cards c ON r.cid = c.id
             WHERE r.id BETWEEN ? AND ?
             GROUP BY c.did
-        """,
-            (today_start, tomorrow_start),
-        )
+        """, (today_start, tomorrow_start))
         for did, count in c.fetchall():
             for d in deck_stats:
                 if deck_map.get(did) == d["deck"]:
