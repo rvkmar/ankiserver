@@ -568,76 +568,122 @@ def get_deck_stats(username):
     return stats
 
 
+# def get_full_stats(username):
+#     tmp_path = safe_copy_db(username)
+#     if not tmp_path:
+#         return {}
+#     stats = {}
+#     try:
+#         conn = sqlite3.connect(tmp_path)
+#         c = conn.cursor()
+
+#         try:
+#             c.execute("SELECT type, COUNT(*) FROM cards GROUP BY type")
+#             stats["card_types"] = {t: n for t, n in c.fetchall()}
+#         except Exception:
+#             stats["card_types"] = {}
+
+#         try:
+#             c.execute("SELECT ease, COUNT(*) FROM revlog GROUP BY ease")
+#             stats["ease_counts"] = {e: n for e, n in c.fetchall()}
+#         except Exception:
+#             stats["ease_counts"] = {}
+
+#         try:
+#             start = datetime.now() - timedelta(days=30)
+#             start_ts = int(start.timestamp() * 1000)
+#             c.execute(
+#                 """
+#                 SELECT strftime('%Y-%m-%d', id/1000, 'unixepoch'), COUNT(*)
+#                 FROM revlog WHERE id >= ?
+#                 GROUP BY strftime('%Y-%m-%d', id/1000, 'unixepoch')
+#             """,
+#                 (start_ts,),
+#             )
+#             stats["reviews_per_day"] = c.fetchall()
+#         except Exception:
+#             stats["reviews_per_day"] = []
+
+#         try:
+#             today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+#             today_ts = int(today.timestamp())
+#             end_ts = int((today + timedelta(days=30)).timestamp())
+#             c.execute(
+#                 """
+#                 SELECT strftime('%Y-%m-%d', due, 'unixepoch'), COUNT(*)
+#                 FROM cards WHERE due BETWEEN ? AND ?
+#                 GROUP BY strftime('%Y-%m-%d', due, 'unixepoch')
+#             """,
+#                 (today_ts, end_ts),
+#             )
+#             stats["future_due"] = c.fetchall()
+#         except Exception:
+#             stats["future_due"] = []
+
+#         try:
+#             c.execute("SELECT ivl FROM cards WHERE ivl > 0")
+#             intervals = [row[0] for row in c.fetchall()]
+#             bins = [1, 3, 7, 15, 30, 90, 180, 365, 9999]
+#             labels = ["1d", "3d", "1w", "2w", "1m", "3m", "6m", "1y+"]
+#             counts = [0] * (len(bins) - 1)
+#             for ivl in intervals:
+#                 for i in range(len(bins) - 1):
+#                     if bins[i] <= ivl < bins[i + 1]:
+#                         counts[i] += 1
+#                         break
+#             stats["intervals"] = list(zip(labels, counts))
+#         except Exception:
+#             stats["intervals"] = []
+#     finally:
+#         conn.close()
+#         os.remove(tmp_path)
+#     return stats
+
 def get_full_stats(username):
     tmp_path = safe_copy_db(username)
     if not tmp_path:
         return {}
-    stats = {}
+
+    conn = None
     try:
         conn = sqlite3.connect(tmp_path)
         c = conn.cursor()
 
-        try:
-            c.execute("SELECT type, COUNT(*) FROM cards GROUP BY type")
-            stats["card_types"] = {t: n for t, n in c.fetchall()}
-        except Exception:
-            stats["card_types"] = {}
+        # --- Total cards ---
+        c.execute("SELECT COUNT(*) FROM cards WHERE queue >= 0")
+        total_cards = c.fetchone()[0] or 0
 
-        try:
-            c.execute("SELECT ease, COUNT(*) FROM revlog GROUP BY ease")
-            stats["ease_counts"] = {e: n for e, n in c.fetchall()}
-        except Exception:
-            stats["ease_counts"] = {}
+        # --- Anki day number ---
+        anki_epoch = datetime(1970, 1, 1).date()
+        today = datetime.now().astimezone().date()
+        anki_today = (today - anki_epoch).days
 
-        try:
-            start = datetime.now() - timedelta(days=30)
-            start_ts = int(start.timestamp() * 1000)
-            c.execute(
-                """
-                SELECT strftime('%Y-%m-%d', id/1000, 'unixepoch'), COUNT(*)
-                FROM revlog WHERE id >= ?
-                GROUP BY strftime('%Y-%m-%d', id/1000, 'unixepoch')
-            """,
-                (start_ts,),
-            )
-            stats["reviews_per_day"] = c.fetchall()
-        except Exception:
-            stats["reviews_per_day"] = []
+        # --- Due cards ---
+        c.execute(
+            "SELECT COUNT(*) FROM cards WHERE queue >= 0 AND due <= ?",
+            (anki_today,),
+        )
+        due_cards = c.fetchone()[0] or 0
 
-        try:
-            today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-            today_ts = int(today.timestamp())
-            end_ts = int((today + timedelta(days=30)).timestamp())
-            c.execute(
-                """
-                SELECT strftime('%Y-%m-%d', due, 'unixepoch'), COUNT(*)
-                FROM cards WHERE due BETWEEN ? AND ?
-                GROUP BY strftime('%Y-%m-%d', due, 'unixepoch')
-            """,
-                (today_ts, end_ts),
-            )
-            stats["future_due"] = c.fetchall()
-        except Exception:
-            stats["future_due"] = []
+        # --- Mature vs Young cards ---
+        c.execute("SELECT COUNT(*) FROM cards WHERE queue = 2 AND ivl >= 21")
+        mature_cards = c.fetchone()[0] or 0
 
-        try:
-            c.execute("SELECT ivl FROM cards WHERE ivl > 0")
-            intervals = [row[0] for row in c.fetchall()]
-            bins = [1, 3, 7, 15, 30, 90, 180, 365, 9999]
-            labels = ["1d", "3d", "1w", "2w", "1m", "3m", "6m", "1y+"]
-            counts = [0] * (len(bins) - 1)
-            for ivl in intervals:
-                for i in range(len(bins) - 1):
-                    if bins[i] <= ivl < bins[i + 1]:
-                        counts[i] += 1
-                        break
-            stats["intervals"] = list(zip(labels, counts))
-        except Exception:
-            stats["intervals"] = []
+        c.execute("SELECT COUNT(*) FROM cards WHERE queue = 2 AND ivl < 21")
+        young_cards = c.fetchone()[0] or 0
+
+        return {
+            "total_cards": total_cards,
+            "due_cards": due_cards,
+            "mature_cards": mature_cards,
+            "young_cards": young_cards,
+        }
+
     finally:
-        conn.close()
-        os.remove(tmp_path)
-    return stats
+        if conn:
+            conn.close()
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
 
 
 def get_review_time(username, days=30):
