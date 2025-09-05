@@ -21,3 +21,14 @@ table.table th:nth-child(2) {
   z-index: 2;
   padding: 0.25rem 0.4rem;
 }
+
+.total-row {
+  font-weight: bold;
+  background-color: #f0f8ff;
+  /* light blue background */
+}
+
+.total-row td {
+  border-top: 2px solid #000;
+  /* thick line above total row */
+}

@@ -560,6 +560,17 @@ def get_deck_stats(username):
             if did in deck_stats:
                 deck_stats[did]["reviews_today"] = count
 
+        # --- Add total row ---
+        if deck_stats:
+            total_row = {
+                "deck": "Total (All Decks)",
+                "total": sum(d["total"] for d in deck_stats.values()),
+                "due": sum(d["due"] for d in deck_stats.values()),
+                "reviews_today": sum(d["reviews_today"] for d in deck_stats.values())
+            }
+            # Use a special key (-1) so it doesn’t clash with real deck ids
+            deck_stats[-1] = total_row
+
     finally:
         conn.close()
         os.remove(tmp_path)
