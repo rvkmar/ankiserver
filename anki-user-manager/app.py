@@ -299,24 +299,86 @@ def get_review_history(username, days=30):
     return history
 
 
+# def get_deck_stats(username):
+#     tmp_path = safe_copy_db(username)
+#     if not tmp_path:
+#         return []
+#     deck_stats, deck_map = [], {}
+#     try:
+#         conn = sqlite3.connect(tmp_path)
+#         c = conn.cursor()
+#         try:
+#             c.execute("SELECT decks FROM col")
+#             row = c.fetchone()
+#             if row and row[0].strip():
+#                 decks_json = json.loads(row[0])
+#                 for did, info in decks_json.items():
+#                     deck_map[int(did)] = info.get("name", f"Deck {did}")
+#         except Exception as e:
+#             print(f"⚠️ Deck map error for {username}: {e}")
+
+#         today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+#         tomorrow = today + timedelta(days=1)
+#         today_start = int(today.timestamp() * 1000)
+#         tomorrow_start = int(tomorrow.timestamp() * 1000)
+
+#         try:
+#             for did, total, due in c.execute("""
+#                 SELECT did, COUNT(*), SUM(due <= strftime('%s','now'))
+#                 FROM cards GROUP BY did
+#             """):
+#                 reviews_today = 0
+#                 try:
+#                     c.execute(
+#                         """
+#                         SELECT COUNT(*)
+#                         FROM revlog r
+#                         JOIN cards c ON r.cid = c.id
+#                         WHERE c.did = ? AND r.id BETWEEN ? AND ?
+#                     """,
+#                         (did, today_start, tomorrow_start),
+#                     )
+#                     reviews_today = c.fetchone()[0]
+#                 except Exception:
+#                     pass
+#                 deck_stats.append(
+#                     {
+#                         "deck": deck_map.get(int(did), f"Deck {did}"),
+#                         "total": total,
+#                         "due": due or 0,
+#                         "reviews_today": reviews_today,
+#                     }
+#                 )
+#         except Exception as e:
+#             print(f"⚠️ Deck stats error for {username}: {e}")
+#     finally:
+#         conn.close()
+#         os.remove(tmp_path)
+#     return deck_stats
+
 def get_deck_stats(username):
     tmp_path = safe_copy_db(username)
     if not tmp_path:
         return []
+
     deck_stats, deck_map = [], {}
     try:
         conn = sqlite3.connect(tmp_path)
         c = conn.cursor()
+
+        # --- Load deck map from col table ---
         try:
             c.execute("SELECT decks FROM col")
             row = c.fetchone()
             if row and row[0].strip():
                 decks_json = json.loads(row[0])
                 for did, info in decks_json.items():
-                    deck_map[int(did)] = info.get("name", f"Deck {did}")
+                    # JSON keys are strings → keep them as str
+                    deck_map[str(did)] = info.get("name", f"Deck {did}")
         except Exception as e:
             print(f"⚠️ Deck map error for {username}: {e}")
 
+        # --- Get card counts per deck ---
         today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         tomorrow = today + timedelta(days=1)
         today_start = int(today.timestamp() * 1000)
@@ -341,9 +403,11 @@ def get_deck_stats(username):
                     reviews_today = c.fetchone()[0]
                 except Exception:
                     pass
+
                 deck_stats.append(
                     {
-                        "deck": deck_map.get(int(did), f"Deck {did}"),
+                        # 👇 Fix: look up using str(did)
+                        "deck": deck_map.get(str(did), f"Deck {did}"),
                         "total": total,
                         "due": due or 0,
                         "reviews_today": reviews_today,
@@ -351,9 +415,11 @@ def get_deck_stats(username):
                 )
         except Exception as e:
             print(f"⚠️ Deck stats error for {username}: {e}")
+
     finally:
         conn.close()
         os.remove(tmp_path)
+
     return deck_stats
 
 
