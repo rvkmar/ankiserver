@@ -2,6 +2,37 @@
 {% block content %}
 <h2>📊 Stats for {{ student }}</h2>
 
+<!-- Deck Summary -->
+<div class="card mb-4">
+  <div class="card-body">
+    <h5>📚 Deck Summary</h5>
+    {% if deck_stats %}
+    <table class="table table-bordered table-striped">
+      <thead class="table-light">
+        <tr>
+          <th>Deck</th>
+          <th>Total Cards</th>
+          <th>Due Cards</th>
+          <th>Reviews Today</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in deck_stats %}
+        <tr>
+          <td>{{ d.deck }}</td>
+          <td>{{ d.total }}</td>
+          <td>{{ d.due }}</td>
+          <td>{{ d.reviews_today }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p>No deck statistics available.</p>
+    {% endif %}
+  </div>
+</div>
+
 <div class="row">
   <!-- Card Types -->
   <div class="col-md-6">
