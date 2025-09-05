@@ -395,9 +395,9 @@ def get_deck_stats(username):
         except Exception as e:
                 logger.error(f"Deck JSON parse error for {username}: {e}")
 
-        if not deck_map:
-            # fallback: at least one default deck
-            deck_map[1] = "Default"
+        # if not deck_map:
+        #     # fallback: at least one default deck
+        #     deck_map[1] = "Default"
 
         # --- Initialize stats for all decks ---
         for did, name in deck_map.items():
