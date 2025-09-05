@@ -1,3 +1,8 @@
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("anki-dashboard")
+
 import os
 import json
 import sqlite3
@@ -367,15 +372,28 @@ def get_deck_stats(username):
         c = conn.cursor()
 
         # --- Load deck map from col table ---
+        # try:
+        #     c.execute("SELECT decks FROM col")
+        #     row = c.fetchone()
+        #     if row and row[0].strip():
+        #         decks_json = json.loads(row[0])
+        #         for key, info in decks_json.items():
+        #             deck_map[int(key)] = info.get("name", f"Deck {key}")
+        # except Exception as e:
+        #     print(f"⚠️ Deck map error for {username}: {e}")
+        c.execute("SELECT decks FROM col")
+        row = c.fetchone()
+        if row and row[0].strip():
+                raw_json = row[0]
+                logger.info(f"RAW decks JSON for {username}: {raw_json[:300]}...")
         try:
-            c.execute("SELECT decks FROM col")
-            row = c.fetchone()
-            if row and row[0].strip():
-                decks_json = json.loads(row[0])
+                decks_json = json.loads(raw_json)
+                logger.info(f"Deck keys for {username}: {list(decks_json.keys())}")
                 for key, info in decks_json.items():
+                    logger.info(f"Deck {key} → {info.get('name')}")
                     deck_map[int(key)] = info.get("name", f"Deck {key}")
         except Exception as e:
-            print(f"⚠️ Deck map error for {username}: {e}")
+                logger.error(f"Deck JSON parse error for {username}: {e}")
 
         if not deck_map:
             # fallback: at least one default deck
