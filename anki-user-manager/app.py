@@ -246,15 +246,29 @@ def get_student_stats(username):
     return {"total": total, "due": due, "reviews_today": reviews_today}
 
 # Updated helper functions to use a safe temporary copy of the DB to avoid locking issues
+import tempfile
+import shutil
+import os
+
+
 def safe_copy_db(username):
-    """Return a safe temporary copy of the user DB or None if missing."""
-    db_path = os.path.join(SYNC_BASE, username, "collection.anki2")
-    if not os.path.exists(db_path):
+    """
+    Make a safe temporary copy of the user's collection.anki2.
+    Returns the path to the copy, or None if it fails.
+    """
+    try:
+        src_path = f"/home/ubuntu/ankiserver/data/{username}/collection.anki2"
+        if not os.path.exists(src_path):
+            return None
+
+        # Create a unique temporary file
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".anki2")
+        tmp.close()  # close the handle so sqlite can open it
+        shutil.copy2(src_path, tmp.name)
+        return tmp.name
+    except Exception as e:
+        app.logger.error(f"safe_copy_db failed for {username}: {e}")
         return None
-    with tempfile.NamedTemporaryFile(delete=False) as tmp:
-        tmp_path = tmp.name
-    shutil.copy(db_path, tmp_path)
-    return tmp_path
 
 
 def get_review_history(username, days=30):
