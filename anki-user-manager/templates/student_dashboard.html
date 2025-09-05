@@ -82,10 +82,9 @@
 </div>
 
 {% if fsrs_stats %}
-<!-- FSRS Metrics -->
 <div class="card mb-4">
   <div class="card-body">
-    <h5>FSRS Metrics</h5>
+    <h5>FSRS Metrics {% if fsrs_stats.is_dummy %}<small class="text-muted">(estimated)</small>{% endif %}</h5>
     <ul class="list-group">
       <li class="list-group-item">Avg Difficulty: {{ fsrs_stats.avg_difficulty }}</li>
       <li class="list-group-item">Avg Stability (days): {{ fsrs_stats.avg_stability }}</li>
@@ -95,7 +94,6 @@
   </div>
 </div>
 {% endif %}
-
 
 <!-- 📊 Chart -->
 <div class="card mx-auto mt-4" style="max-width:900px;">

@@ -190,7 +190,7 @@ def student_dashboard(username):
         # fsrs_stats = None
 
         # ✅ For now, inject dummy FSRS data
-        fsrs_stats = get_dummy_fsrs_stats(username)
+        fsrs_stats = get_fsrs_stats(username)
 
     except Exception as e:
         import traceback
@@ -478,49 +478,128 @@ def get_review_time(username, days=30):
 
 
 # FSRS statistics
-def get_fsrs_stats(username):
-    db_path = os.path.join(SYNC_BASE, username, "collection.anki2")
-    if not os.path.exists(db_path):
-        return None
+# def get_fsrs_stats(username):
+#     db_path = os.path.join(SYNC_BASE, username, "collection.anki2")
+#     if not os.path.exists(db_path):
+#         return None
 
-    conn = sqlite3.connect(db_path)
-    rows = conn.execute("SELECT id, cid, ease, time, type FROM revlog").fetchall()
-    conn.close()
+#     conn = sqlite3.connect(db_path)
+#     rows = conn.execute("SELECT id, cid, ease, time, type FROM revlog").fetchall()
+#     conn.close()
 
-    scheduler = Scheduler()
-    cards = {}
+#     scheduler = Scheduler()
+#     cards = {}
 
-    for id_, cid, ease, time_ms, type_ in rows:
-        rating = Rating(ease)  # fsrs Rating expects exact enum
-        review_time = datetime.fromtimestamp(id_ / 1000)
-        if cid not in cards:
-            cards[cid] = Card()
-        scheduler.review_card(
-            cards[cid], ReviewLog(rating=rating, timestamp=review_time)
-        )
+#     for id_, cid, ease, time_ms, type_ in rows:
+#         rating = Rating(ease)  # fsrs Rating expects exact enum
+#         review_time = datetime.fromtimestamp(id_ / 1000)
+#         if cid not in cards:
+#             cards[cid] = Card()
+#         scheduler.review_card(
+#             cards[cid], ReviewLog(rating=rating, timestamp=review_time)
+#         )
 
-    vals = list(cards.values())
-    return {
-        "avg_difficulty": round(sum(c.difficulty for c in vals) / len(vals), 2),
-        "avg_stability": round(sum(c.stability for c in vals) / len(vals), 2),
-        "avg_retrievability": round(
-            sum(c.retrievability(datetime.now()) for c in vals) / len(vals), 2
-        ),
-        "true_retention": round(
-            sum(1 for _, _, ease_, _, _, _, _ in rows if ease_ > 1) / len(rows) * 100, 2
-        ),
+#     vals = list(cards.values())
+#     return {
+#         "avg_difficulty": round(sum(c.difficulty for c in vals) / len(vals), 2),
+#         "avg_stability": round(sum(c.stability for c in vals) / len(vals), 2),
+#         "avg_retrievability": round(
+#             sum(c.retrievability(datetime.now()) for c in vals) / len(vals), 2
+#         ),
+#         "true_retention": round(
+#             sum(1 for _, _, ease_, _, _, _, _ in rows if ease_ > 1) / len(rows) * 100, 2
+#         ),
+#     }
+
+def get_fsrs_stats(username, days=30):
+    tmp_path = safe_copy_db(username)
+    if not tmp_path:
+        return {
+            "avg_difficulty": 0,
+            "avg_stability": 0,
+            "avg_retrievability": 0,
+            "true_retention": 0,
+            "is_dummy": True,
+        }
+
+    stats = {
+        "avg_difficulty": None,
+        "avg_stability": None,
+        "avg_retrievability": None,
+        "true_retention": None,
+        "is_dummy": False,
     }
-    
-# Dummy FSRS function for testing
-def get_dummy_fsrs_stats(username):
-    """Return fake FSRS stats for demo/testing."""
-    return {
+
+    try:
+        conn = sqlite3.connect(tmp_path)
+        c = conn.cursor()
+
+        # --- 1. Avg difficulty ---
+        try:
+            c.execute("SELECT ease, COUNT(*) FROM revlog GROUP BY ease")
+            ease_counts = dict(c.fetchall())
+            total_reviews = sum(ease_counts.values())
+            if total_reviews > 0:
+                weighted_sum = sum(e * cnt for e, cnt in ease_counts.items())
+                stats["avg_difficulty"] = round(weighted_sum / total_reviews, 2)
+        except Exception as e:
+            print(f"⚠️ FSRS difficulty calc failed: {e}")
+
+        # --- 2. Avg stability ---
+        try:
+            c.execute("SELECT AVG(ivl) FROM cards WHERE ivl > 0")
+            avg_ivl = c.fetchone()[0]
+            if avg_ivl:
+                stats["avg_stability"] = round(avg_ivl, 2)
+        except Exception as e:
+            print(f"⚠️ FSRS stability calc failed: {e}")
+
+        # --- 3. Avg retrievability ---
+        try:
+            since = datetime.now() - timedelta(days=days)
+            since_ts = int(since.timestamp() * 1000)
+            c.execute(
+                "SELECT ease, COUNT(*) FROM revlog WHERE id >= ? GROUP BY ease",
+                (since_ts,),
+            )
+            rows = c.fetchall()
+            correct = sum(cnt for ease, cnt in rows if ease > 1)
+            total = sum(cnt for _, cnt in rows)
+            if total > 0:
+                stats["avg_retrievability"] = round(correct / total, 2)
+        except Exception as e:
+            print(f"⚠️ FSRS retrievability calc failed: {e}")
+
+        # --- 4. True retention ---
+        try:
+            c.execute(
+                "SELECT COUNT(*), SUM(CASE WHEN ease > 1 THEN 1 ELSE 0 END) FROM revlog"
+            )
+            total, correct = c.fetchone()
+            if total and correct is not None:
+                stats["true_retention"] = round((correct / total) * 100, 2)
+        except Exception as e:
+            print(f"⚠️ FSRS retention calc failed: {e}")
+
+    finally:
+        conn.close()
+        os.remove(tmp_path)
+
+    # Fallback if any missing
+    defaults = {
         "avg_difficulty": 2.5,
         "avg_stability": 15,
         "avg_retrievability": 0.85,
         "true_retention": 92.3,
     }
-    
+    for key, val in list(stats.items()):
+        if key != "is_dummy" and val is None:
+            stats[key] = defaults[key]
+            stats["is_dummy"] = True  # mark as estimated
+
+    return stats
+
+
 # --- Run App ---
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5000, debug=False)
