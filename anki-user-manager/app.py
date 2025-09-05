@@ -181,11 +181,12 @@ def logs():
 @login_required
 def student_dashboard(username):
     try:
-        stats = get_student_stats(username) or {
-            "total": 0,
-            "due": 0,
-            "reviews_today": 0,
-        }
+        stats = get_student_stats(username) or []
+        # {
+        #     "total": 0,
+        #     "due": 0,
+        #     "reviews_today": 0,
+        # }
         history = get_review_history(username, days=30) or []
         deck_stats = get_deck_stats(username) or []
         full_stats = get_full_stats(username) or {}
