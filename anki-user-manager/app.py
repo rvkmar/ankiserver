@@ -428,6 +428,74 @@ def get_review_history(username, days=30):
 #     return deck_stats
 
 # third
+# def get_deck_stats(username):
+#     tmp_path = safe_copy_db(username)
+#     if not tmp_path:
+#         return []
+
+#     deck_stats, deck_map = {}, {}
+#     try:
+#         conn = sqlite3.connect(tmp_path)
+#         c = conn.cursor()
+
+#         # --- Try loading deck map from col.decks ---
+#         try:
+#             c.execute("SELECT decks FROM col")
+#             row = c.fetchone()
+#             if row and row[0] and row[0].strip():
+#                 decks_json = json.loads(row[0])
+#                 for key, info in decks_json.items():
+#                     deck_map[int(key)] = info.get("name", f"Deck {key}")
+#         except Exception as e:
+#             logger.error(f"Deck JSON parse error for {username}: {e}")
+
+#         # --- If no deck_map, fallback to card dids ---
+#         if not deck_map:
+#             c.execute("SELECT DISTINCT did FROM cards")
+#             for (did,) in c.fetchall():
+#                 deck_map[did] = f"Deck {did}"
+#             logger.warning(f"Using fallback deck IDs for {username}: {deck_map}")
+
+#         # --- Initialize stats for all decks ---
+#         for did, name in deck_map.items():
+#             deck_stats[did] = {"deck": name, "total": 0, "due": 0, "reviews_today": 0}
+
+#         today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+#         tomorrow = today + timedelta(days=1)
+#         today_start = int(today.timestamp() * 1000)
+#         tomorrow_start = int(tomorrow.timestamp() * 1000)
+
+#         # --- Card counts ---
+#         c.execute(
+#             "SELECT did, COUNT(*), SUM(due <= strftime('%s','now')) FROM cards GROUP BY did"
+#         )
+#         for did, total, due in c.fetchall():
+#             if did in deck_stats:
+#                 deck_stats[did]["total"] = total
+#                 deck_stats[did]["due"] = due or 0
+
+#         # --- Reviews today ---
+#         c.execute(
+#             """
+#             SELECT c.did, COUNT(*)
+#             FROM revlog r
+#             JOIN cards c ON r.cid = c.id
+#             WHERE r.id BETWEEN ? AND ?
+#             GROUP BY c.did
+#         """,
+#             (today_start, tomorrow_start),
+#         )
+#         for did, count in c.fetchall():
+#             if did in deck_stats:
+#                 deck_stats[did]["reviews_today"] = count
+
+#     finally:
+#         conn.close()
+#         os.remove(tmp_path)
+
+#     return list(deck_stats.values())
+
+# fourth
 def get_deck_stats(username):
     tmp_path = safe_copy_db(username)
     if not tmp_path:
@@ -438,7 +506,7 @@ def get_deck_stats(username):
         conn = sqlite3.connect(tmp_path)
         c = conn.cursor()
 
-        # --- Try loading deck map from col.decks ---
+        # --- Try col.decks JSON first ---
         try:
             c.execute("SELECT decks FROM col")
             row = c.fetchone()
@@ -449,23 +517,21 @@ def get_deck_stats(username):
         except Exception as e:
             logger.error(f"Deck JSON parse error for {username}: {e}")
 
-        # --- If no deck_map, fallback to card dids ---
+        # --- Fallback: legacy 'decks' table ---
         if not deck_map:
-            c.execute("SELECT DISTINCT did FROM cards")
-            for (did,) in c.fetchall():
-                deck_map[did] = f"Deck {did}"
-            logger.warning(f"Using fallback deck IDs for {username}: {deck_map}")
+            try:
+                c.execute("SELECT id, name FROM decks")
+                for did, name in c.fetchall():
+                    deck_map[int(did)] = name
+                logger.info(f"Using legacy decks table for {username}: {deck_map}")
+            except Exception as e:
+                logger.error(f"Legacy decks table error for {username}: {e}")
 
-        # --- Initialize stats for all decks ---
+        # --- Initialize stats ---
         for did, name in deck_map.items():
             deck_stats[did] = {"deck": name, "total": 0, "due": 0, "reviews_today": 0}
 
-        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        tomorrow = today + timedelta(days=1)
-        today_start = int(today.timestamp() * 1000)
-        tomorrow_start = int(tomorrow.timestamp() * 1000)
-
-        # --- Card counts ---
+        # Count cards per deck
         c.execute(
             "SELECT did, COUNT(*), SUM(due <= strftime('%s','now')) FROM cards GROUP BY did"
         )
@@ -474,7 +540,12 @@ def get_deck_stats(username):
                 deck_stats[did]["total"] = total
                 deck_stats[did]["due"] = due or 0
 
-        # --- Reviews today ---
+        # Reviews today
+        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        tomorrow = today + timedelta(days=1)
+        today_start = int(today.timestamp() * 1000)
+        tomorrow_start = int(tomorrow.timestamp() * 1000)
+
         c.execute(
             """
             SELECT c.did, COUNT(*)
