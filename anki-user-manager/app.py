@@ -6,7 +6,7 @@ import subprocess
 import bcrypt
 from datetime import datetime, timedelta
 from functools import wraps
-from flask import Flask, render_template, request, redirect, url_for, flash, session #, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, session
 import sqlite3, tempfile, pandas as pd
 
 app = Flask(__name__)
@@ -95,8 +95,6 @@ def dashboard():
                         "reviews_today": stats.get("reviews_today", 0),
                     }
                 )
-            # include review history
-            # history[student] = get_review_history(student, days=14)
         except Exception as e:
             print(f"⚠️ Error fetching stats for {student}: {e}")
 
@@ -246,16 +244,6 @@ def get_student_stats(username):
     return {"total": total, "due": due, "reviews_today": reviews_today}
 
 # Updated helper functions to use a safe temporary copy of the DB to avoid locking issues
-# def safe_copy_db(username):
-#     """Return a safe temporary copy of the user DB or None if missing."""
-#     db_path = os.path.join(SYNC_BASE, username, "collection.anki2")
-#     if not os.path.exists(db_path):
-#         return None
-#     with tempfile.NamedTemporaryFile(delete=False) as tmp:
-#         tmp_path = tmp.name
-#     shutil.copy(db_path, tmp_path)
-#     return tmp_path
-
 def safe_copy_db(username):
     """
     Make a safe temporary copy of the user's collection.anki2.
@@ -305,104 +293,6 @@ def get_review_history(username, days=30):
         conn.close()
         os.remove(tmp_path)
     return history
-
-# Make deck stats more robust with list
-# def get_deck_stats(username):
-#     tmp_path = safe_copy_db(username)
-#     if not tmp_path:
-#         return []
-
-#     stats = []
-#     deck_map = {}
-#     try:
-#         conn = sqlite3.connect(tmp_path)
-#         c = conn.cursor()
-
-#         # --- Try col.decks JSON ---
-#         try:
-#             c.execute("SELECT decks FROM col")
-#             row = c.fetchone()
-#             if row and row[0] and row[0].strip():
-#                 decks_json = json.loads(row[0])
-#                 for key, info in decks_json.items():
-#                     deck_map[int(key)] = info.get("name", f"Deck {key}")
-#         except Exception:
-#             pass
-
-#         # --- Fallback: legacy decks table ---
-#         if not deck_map:
-#             try:
-#                 c.execute("SELECT id, name FROM decks")
-#                 for did, name in c.fetchall():
-#                     deck_map[int(did)] = name
-#             except Exception:
-#                 pass
-
-#         # --- Initialize stats for all decks ---
-#         for did, name in deck_map.items():
-#             stats.append(
-#                 {
-#                     "deck": name,
-#                     "total": 0,
-#                     "due": 0,
-#                     "reviews_today": 0,
-#                     "id": did,
-#                     "is_total": False,  # 👈 marker
-#                 }
-#             )
-
-#         # --- Update counts from cards ---
-#         c.execute(
-#             "SELECT did, COUNT(*), SUM(due <= strftime('%s','now')) FROM cards GROUP BY did"
-#         )
-#         counts = {did: (total, due or 0) for did, total, due in c.fetchall()}
-
-#         for s in stats:
-#             did = s["id"]
-#             if did in counts:
-#                 total, due = counts[did]
-#                 s["total"] = total
-#                 s["due"] = due
-
-#         # --- Update reviews today ---
-#         today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-#         tomorrow = today + timedelta(days=1)
-#         today_start = int(today.timestamp() * 1000)
-#         tomorrow_start = int(tomorrow.timestamp() * 1000)
-
-#         c.execute(
-#             """
-#             SELECT c.did, COUNT(*)
-#             FROM revlog r
-#             JOIN cards c ON r.cid = c.id
-#             WHERE r.id BETWEEN ? AND ?
-#             GROUP BY c.did
-#         """,
-#             (today_start, tomorrow_start),
-#         )
-#         review_counts = {did: cnt for did, cnt in c.fetchall()}
-
-#         for s in stats:
-#             did = s["id"]
-#             if did in review_counts:
-#                 s["reviews_today"] = review_counts[did]
-
-#         # --- Add total row ---
-#         total_row = {
-#             "deck": "Total (All Decks)",
-#             "total": sum(s["total"] for s in stats),
-#             "due": sum(s["due"] for s in stats),
-#             "reviews_today": sum(s["reviews_today"] for s in stats),
-#             "id": -1,
-#             "is_total": True,  # 👈 marker
-#         }
-#         stats.append(total_row)
-
-#     finally:
-#         conn.close()
-#         os.remove(tmp_path)
-
-#     return stats
 
 def get_deck_stats(username):
     tmp_path = safe_copy_db(username)
