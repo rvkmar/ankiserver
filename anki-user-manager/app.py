@@ -1,8 +1,3 @@
-import logging
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("anki-dashboard")
-
 import os
 import json
 import sqlite3
@@ -11,10 +6,8 @@ import subprocess
 import bcrypt
 from datetime import datetime, timedelta
 from functools import wraps
-from fsrs import Scheduler, Card, Rating, ReviewLog
 from flask import Flask, render_template, request, redirect, url_for, flash, session #, jsonify
 import sqlite3, tempfile, pandas as pd
-# from ankipandas import Collection
 
 app = Flask(__name__)
 app.secret_key = "supersecret"  # TODO: change in production
@@ -182,20 +175,10 @@ def logs():
 def student_dashboard(username):
     try:
         stats = get_student_stats(username) or []
-        # {
-        #     "total": 0,
-        #     "due": 0,
-        #     "reviews_today": 0,
-        # }
         history = get_review_history(username, days=30) or []
         deck_stats = get_deck_stats(username) or []
         full_stats = get_full_stats(username) or {}
         review_time = get_review_time(username, days=30) or {"daily": [], "avg_time": 0}
-
-        # For now, FSRS stats are not implemented
-        # fsrs_stats = None
-
-        # ✅ For now, inject dummy FSRS data
         fsrs_stats = get_fsrs_stats(username)
 
     except Exception as e:
@@ -304,202 +287,7 @@ def get_review_history(username, days=30):
         os.remove(tmp_path)
     return history
 
-
-# def get_deck_stats(username):
-#     tmp_path = safe_copy_db(username)
-#     if not tmp_path:
-#         return []
-#     deck_stats, deck_map = [], {}
-#     try:
-#         conn = sqlite3.connect(tmp_path)
-#         c = conn.cursor()
-#         try:
-#             c.execute("SELECT decks FROM col")
-#             row = c.fetchone()
-#             if row and row[0].strip():
-#                 decks_json = json.loads(row[0])
-#                 for did, info in decks_json.items():
-#                     deck_map[int(did)] = info.get("name", f"Deck {did}")
-#         except Exception as e:
-#             print(f"⚠️ Deck map error for {username}: {e}")
-
-#         today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-#         tomorrow = today + timedelta(days=1)
-#         today_start = int(today.timestamp() * 1000)
-#         tomorrow_start = int(tomorrow.timestamp() * 1000)
-
-#         try:
-#             for did, total, due in c.execute("""
-#                 SELECT did, COUNT(*), SUM(due <= strftime('%s','now'))
-#                 FROM cards GROUP BY did
-#             """):
-#                 reviews_today = 0
-#                 try:
-#                     c.execute(
-#                         """
-#                         SELECT COUNT(*)
-#                         FROM revlog r
-#                         JOIN cards c ON r.cid = c.id
-#                         WHERE c.did = ? AND r.id BETWEEN ? AND ?
-#                     """,
-#                         (did, today_start, tomorrow_start),
-#                     )
-#                     reviews_today = c.fetchone()[0]
-#                 except Exception:
-#                     pass
-#                 deck_stats.append(
-#                     {
-#                         "deck": deck_map.get(int(did), f"Deck {did}"),
-#                         "total": total,
-#                         "due": due or 0,
-#                         "reviews_today": reviews_today,
-#                     }
-#                 )
-#         except Exception as e:
-#             print(f"⚠️ Deck stats error for {username}: {e}")
-#     finally:
-#         conn.close()
-#         os.remove(tmp_path)
-#     return deck_stats
-
-# second
-# def get_deck_stats(username):
-#     tmp_path = safe_copy_db(username)
-#     if not tmp_path:
-#         return []
-
-#     deck_stats, deck_map = [], {}
-#     try:
-#         conn = sqlite3.connect(tmp_path)
-#         c = conn.cursor()
-
-#         # --- Load deck map from col table ---
-#         try:
-#             c.execute("SELECT decks FROM col")
-#             row = c.fetchone()
-#             if row and row[0].strip():
-#                 decks_json = json.loads(row[0])
-#                 for key, info in decks_json.items():
-#                     deck_map[int(key)] = info.get("name", f"Deck {key}")
-#         except Exception as e:
-#             print(f"⚠️ Deck map error for {username}: {e}")
-
-#         if not deck_map:
-#             # fallback: at least one default deck
-#             deck_map[1] = "Default"
-
-#         # --- Initialize stats for all decks ---
-#         for did, name in deck_map.items():
-#             deck_stats.append({
-#                 "deck": name,
-#                 "total": 0,
-#                 "due": 0,
-#                 "reviews_today": 0,
-#             })
-
-#         # --- Add actual stats ---
-#         today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-#         tomorrow = today + timedelta(days=1)
-#         today_start = int(today.timestamp() * 1000)
-#         tomorrow_start = int(tomorrow.timestamp() * 1000)
-
-#         c.execute("SELECT did, COUNT(*), SUM(due <= strftime('%s','now')) FROM cards GROUP BY did")
-#         for did, total, due in c.fetchall():
-#             for d in deck_stats:
-#                 if deck_map.get(did) == d["deck"]:
-#                     d["total"] = total
-#                     d["due"] = due or 0
-
-#         c.execute("""
-#             SELECT c.did, COUNT(*)
-#             FROM revlog r
-#             JOIN cards c ON r.cid = c.id
-#             WHERE r.id BETWEEN ? AND ?
-#             GROUP BY c.did
-#         """, (today_start, tomorrow_start))
-#         for did, count in c.fetchall():
-#             for d in deck_stats:
-#                 if deck_map.get(did) == d["deck"]:
-#                     d["reviews_today"] = count
-
-#     finally:
-#         conn.close()
-#         os.remove(tmp_path)
-
-#     return deck_stats
-
-# third
-# def get_deck_stats(username):
-#     tmp_path = safe_copy_db(username)
-#     if not tmp_path:
-#         return []
-
-#     deck_stats, deck_map = {}, {}
-#     try:
-#         conn = sqlite3.connect(tmp_path)
-#         c = conn.cursor()
-
-#         # --- Try col.decks JSON first ---
-#         try:
-#             c.execute("SELECT decks FROM col")
-#             row = c.fetchone()
-#             if row and row[0] and row[0].strip():
-#                 decks_json = json.loads(row[0])
-#                 for key, info in decks_json.items():
-#                     deck_map[int(key)] = info.get("name", f"Deck {key}")
-#         except Exception as e:
-#             logger.error(f"Deck JSON parse error for {username}: {e}")
-
-#         # --- Fallback: legacy 'decks' table ---
-#         if not deck_map:
-#             try:
-#                 c.execute("SELECT id, name FROM decks")
-#                 for did, name in c.fetchall():
-#                     deck_map[int(did)] = name
-#                 logger.info(f"Using legacy decks table for {username}: {deck_map}")
-#             except Exception as e:
-#                 logger.error(f"Legacy decks table error for {username}: {e}")
-
-#         # --- Initialize stats ---
-#         for did, name in deck_map.items():
-#             deck_stats[did] = {"deck": name, "total": 0, "due": 0, "reviews_today": 0}
-
-#         # Count cards per deck
-#         c.execute(
-#             "SELECT did, COUNT(*), SUM(due <= strftime('%s','now')) FROM cards GROUP BY did"
-#         )
-#         for did, total, due in c.fetchall():
-#             if did in deck_stats:
-#                 deck_stats[did]["total"] = total
-#                 deck_stats[did]["due"] = due or 0
-
-#         # Reviews today
-#         today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-#         tomorrow = today + timedelta(days=1)
-#         today_start = int(today.timestamp() * 1000)
-#         tomorrow_start = int(tomorrow.timestamp() * 1000)
-
-#         c.execute(
-#             """
-#             SELECT c.did, COUNT(*)
-#             FROM revlog r
-#             JOIN cards c ON r.cid = c.id
-#             WHERE r.id BETWEEN ? AND ?
-#             GROUP BY c.did
-#         """,
-#             (today_start, tomorrow_start),
-#         )
-#         for did, count in c.fetchall():
-#             if did in deck_stats:
-#                 deck_stats[did]["reviews_today"] = count
-
-#     finally:
-#         conn.close()
-#         os.remove(tmp_path)
-
-#     return list(deck_stats.values())
-
-# Fourth make deck stats more robust with list
+# Make deck stats more robust with list
 def get_deck_stats(username):
     tmp_path = safe_copy_db(username)
     if not tmp_path:
@@ -716,41 +504,6 @@ def get_review_time(username, days=30):
         conn.close()
         os.remove(tmp_path)
     return {"daily": daily, "avg_time": avg_time}
-
-
-# FSRS statistics
-# def get_fsrs_stats(username):
-#     db_path = os.path.join(SYNC_BASE, username, "collection.anki2")
-#     if not os.path.exists(db_path):
-#         return None
-
-#     conn = sqlite3.connect(db_path)
-#     rows = conn.execute("SELECT id, cid, ease, time, type FROM revlog").fetchall()
-#     conn.close()
-
-#     scheduler = Scheduler()
-#     cards = {}
-
-#     for id_, cid, ease, time_ms, type_ in rows:
-#         rating = Rating(ease)  # fsrs Rating expects exact enum
-#         review_time = datetime.fromtimestamp(id_ / 1000)
-#         if cid not in cards:
-#             cards[cid] = Card()
-#         scheduler.review_card(
-#             cards[cid], ReviewLog(rating=rating, timestamp=review_time)
-#         )
-
-#     vals = list(cards.values())
-#     return {
-#         "avg_difficulty": round(sum(c.difficulty for c in vals) / len(vals), 2),
-#         "avg_stability": round(sum(c.stability for c in vals) / len(vals), 2),
-#         "avg_retrievability": round(
-#             sum(c.retrievability(datetime.now()) for c in vals) / len(vals), 2
-#         ),
-#         "true_retention": round(
-#             sum(1 for _, _, ease_, _, _, _, _ in rows if ease_ > 1) / len(rows) * 100, 2
-#         ),
-#     }
 
 def get_fsrs_stats(username, days=30):
     tmp_path = safe_copy_db(username)
