@@ -36,18 +36,6 @@ def login_required(f):
     return wrapped
 
 
-# @app.route("/login", methods=["GET", "POST"])
-# def login():
-#     if request.method == "POST":
-#         user = request.form["username"]
-#         pw = request.form["password"]
-
-#         if user == ADMIN_USER and bcrypt.checkpw(pw.encode("utf-8"), ADMIN_PASS_HASH.encode("utf-8")):
-#             session["logged_in"] = True
-#             return redirect(url_for("dashboard"))
-#         else:
-#             flash("Invalid credentials", "danger")
-#     return render_template("login.html")
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -187,15 +175,25 @@ def logs():
 @app.route("/dashboard/<username>")
 @login_required
 def student_dashboard(username):
-    stats = get_student_stats(username)
-    history = get_review_history(username, days=30)
-    deck_stats = get_deck_stats(username)
-    full_stats = get_full_stats(username)
-    review_time = get_review_time(username, days=30)
-    # fsrs_stats = get_fsrs_stats(username)
+    try:
+        stats = get_student_stats(username) or {
+            "total": 0,
+            "due": 0,
+            "reviews_today": 0,
+        }
+        history = get_review_history(username, days=30) or []
+        deck_stats = get_deck_stats(username) or []
+        full_stats = get_full_stats(username) or {}
+        review_time = get_review_time(username, days=30) or {"daily": [], "avg_time": 0}
 
-    if not stats:
-        flash(f"No stats available for {username}", "error")
+        # For now, FSRS stats are not implemented
+        fsrs_stats = None
+
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()
+        flash(f"Error loading stats for {username}: {e}", "danger")
         return redirect(url_for("dashboard"))
 
     return render_template(
@@ -205,51 +203,12 @@ def student_dashboard(username):
         deck_stats=deck_stats,
         student=username,
         full_stats=full_stats,
-        review_time=review_time["daily"],
-        avg_time=review_time["avg_time"],
-        # fsrs_stats=fsrs_stats
+        review_time=review_time.get("daily", []),
+        avg_time=review_time.get("avg_time", 0),
+        fsrs_stats=fsrs_stats,  # ✅ always passed
     )
 
-
 # --- Helpers ---
-# def get_student_stats(username):
-#     db_path = os.path.join(SYNC_BASE, username, "collection.anki2")
-#     if not os.path.exists(db_path):
-#         return None
-
-#     try:
-#         # Copy to temp file (avoid DB lock)
-#         with tempfile.NamedTemporaryFile(delete=False) as tmp:
-#             tmp_path = tmp.name
-#         shutil.copy(db_path, tmp_path)
-    
-#         conn = sqlite3.connect(tmp_path)
-#         # cards = pd.read_sql("SELECT * FROM cards", conn)
-#         # revlog = pd.read_sql("SELECT * FROM revlog", conn)
-#         c = conn.cursor()
-
-#         c.execute("SELECT COUNT(*) FROM cards")
-#         total = c.fetchone()[0] or 0
-
-#         c.execute("SELECT COUNT(*) FROM cards WHERE due <= strftime('%s','now')")
-#         due = c.fetchone()[0] or 0
-
-#         today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-#         tomorrow = today + timedelta(days=1)
-#         today_start = int(today.timestamp() * 1000)
-#         tomorrow_start = int(tomorrow.timestamp() * 1000)
-
-#         c.execute(
-#             "SELECT COUNT(*) FROM revlog WHERE id BETWEEN ? AND ?",
-#             (today_start, tomorrow_start),
-#         )
-#         reviews_today = c.fetchone()[0] or 0
-
-#         conn.close()
-#         os.remove(tmp_path)  # cleanup
-#     finally:
-#         return {"total": total, "due": due, "reviews_today": reviews_today}
-
 # Updated def_student_stats to use a safe temporary copy of the DB to avoid locking issues
 def get_student_stats(username):
     tmp_path = safe_copy_db(username)
@@ -293,199 +252,6 @@ def get_student_stats(username):
         os.remove(tmp_path)
 
     return {"total": total, "due": due, "reviews_today": reviews_today}
-
-
-# def get_review_history(username, days=30):
-#     db_path = os.path.join(SYNC_BASE, username, "collection.anki2")
-#     if not os.path.exists(db_path):
-#         return []
-
-#     conn = sqlite3.connect(db_path)
-#     c = conn.cursor()
-
-#     start = datetime.now() - timedelta(days=days)
-#     start_ts = int(start.timestamp() * 1000)
-
-#     c.execute(
-#         """
-#         SELECT (id/1000), COUNT(*)
-#         FROM revlog
-#         WHERE id >= ?
-#         GROUP BY strftime('%Y-%m-%d', id/1000, 'unixepoch')
-#     """,
-#         (start_ts,),
-#     )
-
-#     history = [
-#         {"day": datetime.fromtimestamp(ts).strftime("%Y-%m-%d"), "count": count}
-#         for ts, count in c.fetchall()
-#     ]
-#     conn.close()
-#     return history
-
-
-# def get_deck_stats(username):
-#     db_path = os.path.join(SYNC_BASE, username, "collection.anki2")
-#     if not os.path.exists(db_path):
-#         return []
-
-#     conn = sqlite3.connect(db_path)
-#     c = conn.cursor()
-
-#     deck_map = {}
-#     try:
-#         c.execute("SELECT decks FROM col")
-#         row = c.fetchone()
-#         if row and row[0].strip():
-#             decks_json = json.loads(row[0])
-#             for did, info in decks_json.items():
-#                 deck_map[int(did)] = info.get("name", f"Deck {did}")
-#     except Exception as e:
-#         print(f"⚠️ Deck map error: {e}")
-
-#     today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-#     tomorrow = today + timedelta(days=1)
-#     today_start = int(today.timestamp() * 1000)
-#     tomorrow_start = int(tomorrow.timestamp() * 1000)
-
-#     deck_stats = []
-#     for did, total, due in c.execute("""
-#         SELECT did, COUNT(*), SUM(due <= strftime('%s','now'))
-#         FROM cards
-#         GROUP BY did
-#     """):
-#         c.execute(
-#             """
-#             SELECT COUNT(*)
-#             FROM revlog r
-#             JOIN cards c ON r.cid = c.id
-#             WHERE c.did = ? AND r.id BETWEEN ? AND ?
-#         """,
-#             (did, today_start, tomorrow_start),
-#         )
-#         reviews_today = c.fetchone()[0]
-
-#         deck_stats.append(
-#             {
-#                 "deck": deck_map.get(int(did), f"Deck {did}"),
-#                 "total": total,
-#                 "due": due or 0,
-#                 "reviews_today": reviews_today,
-#             }
-#         )
-
-#     conn.close()
-#     return deck_stats
-
-
-# def get_full_stats(username):
-#     db_path = os.path.join(SYNC_BASE, username, "collection.anki2")
-#     if not os.path.exists(db_path):
-#         return {}
-
-#     conn = sqlite3.connect(db_path)
-#     c = conn.cursor()
-
-#     stats = {}
-
-#     # --- Card types ---
-#     c.execute("SELECT type, COUNT(*) FROM cards GROUP BY type")
-#     stats["card_types"] = {t: n for t, n in c.fetchall()}
-
-#     # --- Ease counts ---
-#     c.execute("SELECT ease, COUNT(*) FROM revlog GROUP BY ease")
-#     stats["ease_counts"] = {e: n for e, n in c.fetchall()}
-
-#     # --- Reviews per day (last 30 days) ---
-#     start = datetime.now() - timedelta(days=30)
-#     start_ts = int(start.timestamp() * 1000)
-#     c.execute(
-#         """
-#         SELECT strftime('%Y-%m-%d', id/1000, 'unixepoch'), COUNT(*)
-#         FROM revlog
-#         WHERE id >= ?
-#         GROUP BY strftime('%Y-%m-%d', id/1000, 'unixepoch')
-#     """,
-#         (start_ts,),
-#     )
-#     stats["reviews_per_day"] = c.fetchall()
-
-#     # --- Future due (next 30 days) ---
-#     today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-#     today_ts = int(today.timestamp())
-#     end_ts = int((today + timedelta(days=30)).timestamp())
-#     c.execute(
-#         """
-#         SELECT strftime('%Y-%m-%d', due, 'unixepoch'), COUNT(*)
-#         FROM cards
-#         WHERE due BETWEEN ? AND ?
-#         GROUP BY strftime('%Y-%m-%d', due, 'unixepoch')
-#     """,
-#         (today_ts, end_ts),
-#     )
-#     stats["future_due"] = c.fetchall()
-
-#     # --- Intervals histogram ---
-#     c.execute("SELECT ivl FROM cards WHERE ivl > 0")
-#     intervals = [row[0] for row in c.fetchall()]
-#     bins = [1, 3, 7, 15, 30, 90, 180, 365, 9999]  # similar to Anki buckets
-#     labels = ["1d", "3d", "1w", "2w", "1m", "3m", "6m", "1y+"]
-
-#     counts = [0] * (len(bins) - 1)
-#     for ivl in intervals:
-#         for i in range(len(bins) - 1):
-#             if bins[i] <= ivl < bins[i + 1]:
-#                 counts[i] += 1
-#                 break
-
-#     stats["intervals"] = list(zip(labels, counts))
-
-#     conn.close()
-#     return stats
-
-# def get_review_time(username, days=30):
-#     db_path = os.path.join(SYNC_BASE, username, "collection.anki2")
-#     if not os.path.exists(db_path):
-#         return {"daily": [], "avg_time": 0}
-
-#     conn = sqlite3.connect(db_path)
-#     c = conn.cursor()
-
-#     start = datetime.now() - timedelta(days=days)
-#     start_ts = int(start.timestamp() * 1000)
-
-#     # Total time + count for avg
-#     c.execute(
-#         """
-#         SELECT SUM(time)/1000.0, COUNT(*)
-#         FROM revlog
-#         WHERE id >= ?
-#     """,
-#         (start_ts,),
-#     )
-#     total_time, count = c.fetchone()
-#     avg_time = round(total_time / count, 2) if count else 0
-
-#     # Per day totals
-#     c.execute(
-#         """
-#         SELECT (id/1000) as day, SUM(time)/1000.0 as seconds
-#         FROM revlog
-#         WHERE id >= ?
-#         GROUP BY strftime('%Y-%m-%d', id/1000, 'unixepoch')
-#     """,
-#         (start_ts,),
-#     )
-#     rows = c.fetchall()
-#     conn.close()
-
-#     return {
-#         "daily": [
-#             {"date": datetime.fromtimestamp(ts).strftime("%Y-%m-%d"), "seconds": sec}
-#             for ts, sec in rows
-#         ],
-#         "avg_time": avg_time,
-#     }
 
 # Updated helper functions to use a safe temporary copy of the DB to avoid locking issues
 def safe_copy_db(username):
