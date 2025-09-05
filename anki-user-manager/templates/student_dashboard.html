@@ -9,7 +9,7 @@
     {% if deck_stats %}
     <table class="table table-bordered table-striped">
       <thead class="table-light">
-        <tr>
+        <tr class="{% if deck.is_total %}total-row{% endif %}">
           <th>Deck</th>
           <th>Total Cards</th>
           <th>Due Cards</th>

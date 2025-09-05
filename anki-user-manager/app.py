@@ -533,7 +533,14 @@ def get_deck_stats(username):
         # --- Initialize stats for all decks ---
         for did, name in deck_map.items():
             stats.append(
-                {"deck": name, "total": 0, "due": 0, "reviews_today": 0, "id": did}
+                {
+                    "deck": name,
+                    "total": 0,
+                    "due": 0,
+                    "reviews_today": 0,
+                    "id": did,
+                    "is_total": False,  # 👈 marker
+                }
             )
 
         # --- Update counts from cards ---
@@ -579,6 +586,7 @@ def get_deck_stats(username):
             "due": sum(s["due"] for s in stats),
             "reviews_today": sum(s["reviews_today"] for s in stats),
             "id": -1,
+            "is_total": True,  # 👈 marker
         }
         stats.append(total_row)
 
