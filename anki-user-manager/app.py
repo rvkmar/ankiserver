@@ -246,10 +246,15 @@ def get_student_stats(username):
     return {"total": total, "due": due, "reviews_today": reviews_today}
 
 # Updated helper functions to use a safe temporary copy of the DB to avoid locking issues
-import tempfile
-import shutil
-import os
-
+# def safe_copy_db(username):
+#     """Return a safe temporary copy of the user DB or None if missing."""
+#     db_path = os.path.join(SYNC_BASE, username, "collection.anki2")
+#     if not os.path.exists(db_path):
+#         return None
+#     with tempfile.NamedTemporaryFile(delete=False) as tmp:
+#         tmp_path = tmp.name
+#     shutil.copy(db_path, tmp_path)
+#     return tmp_path
 
 def safe_copy_db(username):
     """
