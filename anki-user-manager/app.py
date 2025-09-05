@@ -377,7 +377,11 @@ def get_deck_stats(username):
         except Exception as e:
             print(f"⚠️ Deck map error for {username}: {e}")
 
-        # --- Initialize stats for all decks (0 counts) ---
+        if not deck_map:
+            # fallback: at least one default deck
+            deck_map[1] = "Default"
+
+        # --- Initialize stats for all decks ---
         for did, name in deck_map.items():
             deck_stats.append(
                 {
@@ -388,51 +392,35 @@ def get_deck_stats(username):
                 }
             )
 
+        # --- Add actual stats ---
         today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         tomorrow = today + timedelta(days=1)
         today_start = int(today.timestamp() * 1000)
         tomorrow_start = int(tomorrow.timestamp() * 1000)
 
-        # --- Query counts per deck from cards ---
-        try:
-            c.execute(
-                "SELECT did, COUNT(*), SUM(due <= strftime('%s','now')) FROM cards GROUP BY did"
-            )
-            deck_counts = {
-                did: {"total": total, "due": due or 0}
-                for did, total, due in c.fetchall()
-            }
-        except Exception as e:
-            print(f"⚠️ Deck total/due error for {username}: {e}")
-            deck_counts = {}
+        c.execute(
+            "SELECT did, COUNT(*), SUM(due <= strftime('%s','now')) FROM cards GROUP BY did"
+        )
+        for did, total, due in c.fetchall():
+            for d in deck_stats:
+                if deck_map.get(did) == d["deck"]:
+                    d["total"] = total
+                    d["due"] = due or 0
 
-        # --- Query reviews today per deck ---
-        try:
-            c.execute(
-                """
-                SELECT c.did, COUNT(*)
-                FROM revlog r
-                JOIN cards c ON r.cid = c.id
-                WHERE r.id BETWEEN ? AND ?
-                GROUP BY c.did
-            """,
-                (today_start, tomorrow_start),
-            )
-            reviews_today_counts = {did: cnt for did, cnt in c.fetchall()}
-        except Exception as e:
-            print(f"⚠️ Deck reviews_today error for {username}: {e}")
-            reviews_today_counts = {}
-
-        # --- Merge stats ---
-        for d in deck_stats:
-            # Find deck id from deck_map reverse lookup
-            did = next((k for k, v in deck_map.items() if v == d["deck"]), None)
-            if did is not None:
-                if did in deck_counts:
-                    d["total"] = deck_counts[did]["total"]
-                    d["due"] = deck_counts[did]["due"]
-                if did in reviews_today_counts:
-                    d["reviews_today"] = reviews_today_counts[did]
+        c.execute(
+            """
+            SELECT c.did, COUNT(*)
+            FROM revlog r
+            JOIN cards c ON r.cid = c.id
+            WHERE r.id BETWEEN ? AND ?
+            GROUP BY c.did
+        """,
+            (today_start, tomorrow_start),
+        )
+        for did, count in c.fetchall():
+            for d in deck_stats:
+                if deck_map.get(did) == d["deck"]:
+                    d["reviews_today"] = count
 
     finally:
         conn.close()
