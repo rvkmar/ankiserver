@@ -2,207 +2,151 @@
 {% block content %}
 <h2>📊 Statistics for {{ student }}</h2>
 
-<!-- Loading placeholder -->
-<div id="loading" class="alert alert-info">
-  ⏳ Loading statistics for {{ student }}...
+<!-- Deck Summary -->
+<div class="card mb-4">
+  <div class="card-body">
+    <h5>📚 Deck Summary</h5>
+    {% if deck_stats %}
+    <table class="table table-bordered table-striped">
+      <thead class="table-light">
+        <tr>
+          <th>Deck</th>
+          <th>Total Cards</th>
+          <th>Due Cards</th>
+          <th>Reviews Today</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in deck_stats %}
+        <tr class="{{ 'total-row' if d.is_total else '' }}">
+          <td>{{ d.deck }}</td>
+          <td>{{ d.total }}</td>
+          <td>{{ d.due }}</td>
+          <td>{{ d.reviews_today }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p>No deck statistics available.</p>
+    {% endif %}
+  </div>
 </div>
 
-<div id="stats-container" class="d-none">
-  <!-- ===== Summary ===== -->
-  <div class="card mb-4">
-    <div class="card-body">
-      <h5>📋 Summary</h5>
-      <ul>
-        <li><strong>Total Cards:</strong> {{ stats.total }}</li>
-        <li><strong>Due Cards:</strong> {{ stats.due }}</li>
-        <li><strong>Reviews Today:</strong> {{ stats.reviews_today }}</li>
-        <li><strong>Average Review Time:</strong> {{ avg_time }} ms</li>
-      </ul>
-    </div>
-  </div>
-
-  <!-- ===== Deck Summary ===== -->
-  <div class="card mb-4">
-    <div class="card-body">
-      <h5>📚 Deck Summary</h5>
-      {% if deck_stats %}
-      <table class="table table-bordered table-striped">
-        <thead class="table-light">
-          <tr>
-            <th>Deck</th>
-            <th>Total Cards</th>
-            <th>Due Cards</th>
-            <th>Reviews Today</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for d in deck_stats %}
-          <tr class="{{ 'total-row' if d.is_total else '' }}">
-            <td>{{ d.deck }}</td>
-            <td>{{ d.total }}</td>
-            <td>{{ d.due }}</td>
-            <td>{{ d.reviews_today }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      {% else %}
-      <p>No deck statistics available.</p>
-      {% endif %}
-    </div>
-  </div>
-
-  <!-- ===== Card Types + Answer Buttons ===== -->
-  <div class="row">
-    <div class="col-md-6">
-      <div class="card mb-4">
-        <div class="card-body">
-          <h5>🗂️ Card Types</h5>
-          {% if full_stats.card_types %}
-          <canvas id="cardTypeChart" height="200"></canvas>
-          {% else %}
-          <p>No card type data available.</p>
-          {% endif %}
-        </div>
-      </div>
-    </div>
-    <div class="col-md-6">
-      <div class="card mb-4">
-        <div class="card-body">
-          <h5>🔘 Answer Buttons</h5>
-          {% if full_stats.ease_counts %}
-          <canvas id="easeChart" height="200"></canvas>
-          {% else %}
-          <p>No answer button data available.</p>
-          {% endif %}
-        </div>
+<div class="row">
+  <!-- Card Types -->
+  <div class="col-md-6">
+    <div class="card mb-4">
+      <div class="card-body">
+        <h5>Card Types</h5>
+        {% if full_stats.card_types %}
+        <canvas id="cardTypeChart" height="200"></canvas>
+        {% else %}
+        <p>No card type data available.</p>
+        {% endif %}
       </div>
     </div>
   </div>
 
-  <!-- ===== Reviews per Day ===== -->
-  <div class="card mb-4">
-    <div class="card-body">
-      <h5>📆 Reviews per Day (last 30 days)</h5>
-      {% if full_stats.reviews_per_day %}
-      <canvas id="reviewChart" height="120"></canvas>
-      {% else %}
-      <p>No review history found.</p>
-      {% endif %}
-    </div>
-  </div>
-
-  <!-- ===== Future Due (Backlog) ===== -->
-  <div class="card mb-4">
-    <div class="card-body">
-      <h5>📅 Backlog (Next 30 days)</h5>
-      {% if full_stats.future_due %}
-      <canvas id="backlogChart" height="120"></canvas>
-      {% else %}
-      <p>No due cards scheduled.</p>
-      {% endif %}
-    </div>
-  </div>
-
-  <!-- ===== Intervals ===== -->
-  <div class="card mb-4">
-    <div class="card-body">
-      <h5>⏳ Intervals Histogram</h5>
-      {% if full_stats.intervals %}
-      <canvas id="intervalsChart" height="120"></canvas>
-      {% else %}
-      <p>No interval data available.</p>
-      {% endif %}
-    </div>
-  </div>
-
-  <!-- ===== Review Time ===== -->
-  <div class="card mb-4">
-    <div class="card-body">
-      <h5>⏱️ Review Time (Last 30 Days)</h5>
-      <p><strong>Average Review Time per Card:</strong> {{ avg_time }} seconds</p>
-      {% if review_time %}
-      <canvas id="timeChart" height="120"></canvas>
-      {% else %}
-      <p>No review time recorded.</p>
-      {% endif %}
-    </div>
-  </div>
-
-  <!-- ===== FSRS Metrics ===== -->
-  {% if fsrs_stats %}
-  <div class="card mb-4">
-    <div class="card-body">
-      <h5>⚡ FSRS Metrics {% if fsrs_stats.is_dummy %}<small class="text-muted">(estimated)</small>{% endif %}</h5>
-      <ul class="list-group">
-        <li class="list-group-item">Avg Difficulty: {{ fsrs_stats.avg_difficulty }}</li>
-        <li class="list-group-item">Avg Stability (days): {{ fsrs_stats.avg_stability }}</li>
-        <li class="list-group-item">Avg Retrievability: {{ (fsrs_stats.avg_retrievability * 100) | round(2) }}%</li>
-        <li class="list-group-item">True Retention: {{ fsrs_stats.true_retention }}%</li>
-      </ul>
-    </div>
-  </div>
-  {% endif %}
-
-  <!-- ===== Due vs Reviews Today ===== -->
-  <div class="card mb-4">
-    <div class="card-body">
-      <h5>📊 Due Cards & Reviews Today</h5>
-      <canvas id="statsChart" height="120"></canvas>
-    </div>
-  </div>
-
-  <!-- ===== Review Trends ===== -->
-  <div class="card mb-4">
-    <div class="card-body">
-      <h5>📈 Review Trends (Last 30 days)</h5>
-      {% if history %}
-      <canvas id="trendChart" height="150"></canvas>
-      {% else %}
-      <p>No review trends found.</p>
-      {% endif %}
+  <!-- Answer Buttons -->
+  <div class="col-md-6">
+    <div class="card mb-4">
+      <div class="card-body">
+        <h5>Answer Buttons</h5>
+        {% if full_stats.ease_counts %}
+        <canvas id="easeChart" height="200"></canvas>
+        {% else %}
+        <p>No answer button data available.</p>
+        {% endif %}
+      </div>
     </div>
   </div>
 </div>
 
-<!-- scripts: keep your existing Chart.js blocks as they are -->
+<!-- Reviews per Day -->
+<div class="card mb-4">
+  <div class="card-body">
+    <h5>Reviews per Day (last 30 days)</h5>
+    {% if full_stats.reviews_per_day %}
+    <canvas id="reviewChart" height="120"></canvas>
+    {% else %}
+    <p>No review history found.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Backlog (Future Due) -->
+<div class="card mb-4">
+  <div class="card-body">
+    <h5>📅 Backlog (Future Due Cards, next 30 days)</h5>
+    {% if full_stats.future_due %}
+    <canvas id="backlogChart" height="120"></canvas>
+    {% else %}
+    <p>No due cards scheduled.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Intervals Histogram -->
+<div class="card mb-4">
+  <div class="card-body">
+    <h5>⏳ Intervals Histogram</h5>
+    {% if full_stats.intervals %}
+    <canvas id="intervalsChart" height="120"></canvas>
+    {% else %}
+    <p>No interval data available.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Review Time Chart -->
+<div class="card mb-4">
+  <div class="card-body">
+    <h4>⏱️ Review Time (Last 30 Days)</h4>
+    <p><strong>Average Review Time per Card:</strong> {{ avg_time }} seconds</p>
+    {% if review_time %}
+    <canvas id="timeChart" height="120"></canvas>
+    {% else %}
+    <p>No review time recorded.</p>
+    {% endif %}
+  </div>
+</div>
+
+{% if fsrs_stats %}
+<div class="card mb-4">
+  <div class="card-body">
+    <h5>FSRS Metrics {% if fsrs_stats.is_dummy %}<small class="text-muted">(estimated)</small>{% endif %}</h5>
+    <ul class="list-group">
+      <li class="list-group-item">Avg Difficulty: {{ fsrs_stats.avg_difficulty }}</li>
+      <li class="list-group-item">Avg Stability (days): {{ fsrs_stats.avg_stability }}</li>
+      <li class="list-group-item">Avg Retrievability: {{ (fsrs_stats.avg_retrievability * 100) | round(2) }}%</li>
+      <li class="list-group-item">True Retention: {{ fsrs_stats.true_retention }}%</li>
+    </ul>
+  </div>
+</div>
+{% endif %}
+
+<!-- 📊 Chart -->
+<div class="card mx-auto mt-4" style="max-width:900px;">
+  <div class="card-body">
+    <h4>📈 Due Cards & Reviews Today</h4>
+    <canvas id="statsChart" height="120"></canvas>
+  </div>
+</div>
+
+<!-- Review Trends -->
+<div class="card mx-auto mt-4" style="max-width:900px;">
+  <div class="card-body">
+    <h4>📈 Review Trends (Last 30 days)</h4>
+    {% if history %}
+    <canvas id="trendChart" height="150"></canvas>
+    {% else %}
+    <p>No review trends found.</p>
+    {% endif %}
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<!-- lazy load charts after DOM ready -->
-<script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const student = "{{ student }}";
-
-    fetch(`/student_stats/${student}`)
-      .then(r => r.json())
-      .then(data => {
-        document.getElementById("loading").classList.add("d-none");
-        document.getElementById("stats-container").classList.remove("d-none");
-
-        if (data.error) {
-          document.getElementById("stats-container").innerHTML =
-            `<div class="alert alert-danger">⚠️ ${data.error}</div>`;
-          return;
-        }
-
-        // Example render
-        document.getElementById("stats-container").innerHTML = `
-        <h4>📊 Summary</h4>
-        <ul>
-          <li>Total Cards: ${data.stats.total}</li>
-          <li>Due Cards: ${data.stats.due}</li>
-          <li>Reviews Today: ${data.stats.reviews_today}</li>
-          <li>Average Review Time: ${data.avg_time} ms</li>
-        </ul>
-      `;
-      })
-      .catch(err => {
-        document.getElementById("loading").innerHTML =
-          `<div class="alert alert-danger">⚠️ Failed to load stats: ${err}</div>`;
-      });
-  });
-</script>
-
 <script>
   document.addEventListener("DOMContentLoaded", function () {
     // --- Bar chart for due/reviews (single student) ---
