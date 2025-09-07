@@ -3,6 +3,13 @@
 <h2>📊 Statistics for {{ student }}</h2>
 
 <!-- Deck Summary -->
+<div id="loading" class="alert alert-info">
+  ⏳ Loading statistics for {{ student }}...
+</div>
+
+<div id="stats-container" class="d-none">
+  <!-- JS will render stats here -->
+
 <div class="card mb-4">
   <div class="card-body">
     <h5>📚 Deck Summary</h5>
@@ -145,6 +152,43 @@
     {% endif %}
   </div>
 </div>
+</div>
+
+<!-- lazy load charts after DOM ready -->
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const student = "{{ student }}";
+
+    fetch(`/student_stats/${student}`)
+      .then(r => r.json())
+      .then(data => {
+        document.getElementById("loading").classList.add("d-none");
+        document.getElementById("stats-container").classList.remove("d-none");
+
+        if (data.error) {
+          document.getElementById("stats-container").innerHTML =
+            `<div class="alert alert-danger">⚠️ ${data.error}</div>`;
+          return;
+        }
+
+        // Example render
+        document.getElementById("stats-container").innerHTML = `
+        <h4>📊 Summary</h4>
+        <ul>
+          <li>Total Cards: ${data.stats.total}</li>
+          <li>Due Cards: ${data.stats.due}</li>
+          <li>Reviews Today: ${data.stats.reviews_today}</li>
+          <li>Average Review Time: ${data.avg_time} ms</li>
+        </ul>
+      `;
+      })
+      .catch(err => {
+        document.getElementById("loading").innerHTML =
+          `<div class="alert alert-danger">⚠️ Failed to load stats: ${err}</div>`;
+      });
+  });
+</script>
+
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>

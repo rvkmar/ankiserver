@@ -124,6 +124,28 @@ def api_dashboard_stats():
 
     return {"stats": stats_list}
 
+# JSON endpoint for student stats
+@app.route("/student_stats/<username>")
+@login_required
+def student_stats(username):
+    try:
+        stats = get_student_stats(username)
+        history = get_review_history(username, days=30)
+        deck_stats = get_deck_stats(username)
+        full_stats, avg_time, review_time, fsrs_stats = get_full_student_stats(username)
+
+        return {
+            "stats": stats,
+            "history": history,
+            "deck_stats": deck_stats,
+            "full_stats": full_stats,
+            "avg_time": avg_time,
+            "review_time": review_time,
+            "fsrs_stats": fsrs_stats,
+        }
+    except Exception as e:
+        return {"error": str(e)}, 500
+
 
 # --- Manage Users ---
 @app.route("/users")
@@ -625,6 +647,44 @@ def get_fsrs_stats(username, days=30):
             stats["is_dummy"] = True  # mark as estimated
 
     return stats
+
+# Helper to isolate heavy work
+def get_full_student_stats(username):
+    """
+    Heavy stats (interval buckets, ease counts, FSRS metrics etc.)
+    Returns a tuple: (full_stats, avg_time, review_time, fsrs_stats)
+    """
+    db_path = os.path.join(SYNC_BASE, username, "collection.anki2")
+    if not os.path.exists(db_path):
+        return {}, 0, [], {}
+
+    conn = sqlite3.connect(db_path)
+    c = conn.cursor()
+
+    # --- Example placeholders (replace with your actual heavy logic) ---
+    # Interval distribution
+    c.execute("SELECT ivl FROM cards")
+    intervals = [row[0] for row in c.fetchall()]
+    full_stats = {"intervals": intervals}
+
+    # Avg review time
+    c.execute("SELECT avg(time) FROM revlog")
+    avg_time = c.fetchone()[0] or 0
+
+    # Review history (raw for now)
+    c.execute("SELECT id, time FROM revlog LIMIT 200")
+    review_time = c.fetchall()
+
+    # FSRS metrics placeholder
+    fsrs_stats = {
+        "stability": [],
+        "difficulty": [],
+        "retrievability": [],
+        "true_retention": 0,
+    }
+
+    conn.close()
+    return full_stats, avg_time, review_time, fsrs_stats
 
 
 # --- Run App ---
