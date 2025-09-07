@@ -245,50 +245,6 @@ def student_dashboard(username):
     )
 
 # --- Helpers ---
-# Updated def_student_stats to use a safe temporary copy of the DB to avoid locking issues
-# def get_student_stats(username):
-#     tmp_path = safe_copy_db(username)
-#     if not tmp_path:
-#         return None
-
-#     total, due, reviews_today = 0, 0, 0
-#     try:
-#         conn = sqlite3.connect(tmp_path)
-#         c = conn.cursor()
-
-#         try:
-#             c.execute("SELECT COUNT(*) FROM cards")
-#             total = c.fetchone()[0] or 0
-#         except Exception as e:
-#             print(f"⚠️ total cards error for {username}: {e}")
-
-#         try:
-#             # NOTE: In some Anki versions, `due` is days since epoch, not timestamp
-#             c.execute("SELECT COUNT(*) FROM cards WHERE due <= strftime('%s','now')")
-#             due = c.fetchone()[0] or 0
-#         except Exception as e:
-#             print(f"⚠️ due cards error for {username}: {e}")
-
-#         try:
-#             today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-#             tomorrow = today + timedelta(days=1)
-#             today_start = int(today.timestamp() * 1000)
-#             tomorrow_start = int(tomorrow.timestamp() * 1000)
-
-#             c.execute(
-#                 "SELECT COUNT(*) FROM revlog WHERE id BETWEEN ? AND ?",
-#                 (today_start, tomorrow_start),
-#             )
-#             reviews_today = c.fetchone()[0] or 0
-#         except Exception as e:
-#             print(f"⚠️ reviews_today error for {username}: {e}")
-
-#     finally:
-#         conn.close()
-#         os.remove(tmp_path)
-
-#     return {"total": total, "due": due, "reviews_today": reviews_today}
-
 # TODO: Refine due cards logic to match Anki's scheduling rules
 def get_student_stats(username):
     tmp_path = safe_copy_db(username)
@@ -315,9 +271,12 @@ def get_student_stats(username):
             """
             SELECT COUNT(*) 
             FROM cards 
-            WHERE (queue IN (2,3) AND due <= ?) OR (queue = 0 AND due <= ?)
+            WHERE 
+                (queue = 0 AND due <= 10000)   -- new cards (due stores position, usually small int)
+                OR
+                (queue IN (2,3) AND due <= ?) OR (queue = 0 AND due <= ?)  -- review/relearning cards (due = day index)
         """,
-            (today_day, 20),
+            (today_day,),
         )  # 20 = new card limit (roughly); can be fetched from deck conf
         due = c.fetchone()[0] or 0
 
