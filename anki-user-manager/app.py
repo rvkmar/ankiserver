@@ -496,8 +496,11 @@ def get_deck_stats(username):
                     "total": 0,
                     "due": 0,
                     "reviews_today": 0,
+                    "new": 0,
+                    "learn": 0,
+                    "review": 0,
                     "id": did,
-                    "is_total": False,  # 👈 marker
+                    "is_total": False,
                 }
             )
 
@@ -506,22 +509,28 @@ def get_deck_stats(username):
             f"""
             SELECT did,
                    COUNT(*),
-                   SUM(
-                       (queue = 0 AND due <= 10000) OR
-                       (queue IN (2,3) AND due <= {today_day})
-                   )
+                   SUM((queue = 0 AND due <= 10000) OR (queue IN (2,3) AND due <= {today_day})),
+                   SUM(queue = 0),
+                   SUM(queue = 1),
+                   SUM(queue = 2)
             FROM cards
             GROUP BY did
             """
         )
-        counts = {did: (total, due or 0) for did, total, due in c.fetchall()}
+        counts = {
+            did: (total, due or 0, new or 0, learn or 0, review or 0)
+            for did, total, due, new, learn, review in c.fetchall()
+        }
 
         for s in stats:
             did = s["id"]
             if did in counts:
-                total, due = counts[did]
+                total, due, new, learn, review = counts[did]
                 s["total"] = total
                 s["due"] = due
+                s["new"] = new
+                s["learn"] = learn
+                s["review"] = review
 
         # --- Update reviews today ---
         today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -552,8 +561,11 @@ def get_deck_stats(username):
             "total": sum(s["total"] for s in stats),
             "due": sum(s["due"] for s in stats),
             "reviews_today": sum(s["reviews_today"] for s in stats),
+            "new": sum(s["new"] for s in stats),
+            "learn": sum(s["learn"] for s in stats),
+            "review": sum(s["review"] for s in stats),
             "id": -1,
-            "is_total": True,  # 👈 marker
+            "is_total": True,
         }
         stats.append(total_row)
 
@@ -561,7 +573,7 @@ def get_deck_stats(username):
         if conn:
             conn.close()
         if os.path.exists(tmp_path):
-            os.remove(tmp_path)  # ✅ cleanup always
+            os.remove(tmp_path)
 
     return stats
 
