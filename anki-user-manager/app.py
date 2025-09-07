@@ -654,11 +654,15 @@ def get_full_student_stats(username):
     Heavy stats (interval buckets, ease counts, FSRS metrics etc.)
     Returns a tuple: (full_stats, avg_time, review_time, fsrs_stats)
     """
-    db_path = os.path.join(SYNC_BASE, username, "collection.anki2")
-    if not os.path.exists(db_path):
+    tmp_path = safe_copy_db(username)
+    if not tmp_path:
         return {}, 0, [], {}
+    
+    # db_path = os.path.join(SYNC_BASE, username, "collection.anki2")
+    # if not os.path.exists(db_path):
+    #     return {}, 0, [], {}
 
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(tmp_path)
     c = conn.cursor()
 
     # --- Example placeholders (replace with your actual heavy logic) ---
