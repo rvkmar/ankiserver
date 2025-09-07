@@ -14,6 +14,11 @@
           <th>Details</th>
         </tr>
       </thead>
+      <tbody id="stats-body">
+        <tr>
+          <td colspan="5" class="text-center">Loading...</td>
+        </tr>
+      </tbody>
       <tbody>
         {% for s in stats_list %}
         <tr>
@@ -31,5 +36,27 @@
   </div>
 </div>
 
+<script>
+  async function loadDashboardStats() {
+    const res = await fetch("{{ url_for('api_dashboard_stats') }}");
+    const data = await res.json();
+    const tbody = document.getElementById("stats-body");
+    tbody.innerHTML = "";
+
+    data.stats.forEach(s => {
+      tbody.innerHTML += `
+        <tr>
+          <td>${s.username}</td>
+          <td>${s.total_cards}</td>
+          <td>${s.due_cards}</td>
+          <td>${s.reviews_today}</td>
+          <td><a class="btn btn-sm btn-info" href="/dashboard/${s.username}">View</a></td>
+        </tr>
+      `;
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", loadDashboardStats);
+</script>
 
 {% endblock %}

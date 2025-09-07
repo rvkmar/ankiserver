@@ -100,6 +100,30 @@ def dashboard():
 
     return render_template("dashboard.html", stats_list=stats_list) #, history=history)
 
+# AJAX endpoint for dashboard stats
+@app.route("/api/dashboard_stats")
+@login_required
+def api_dashboard_stats():
+    students = [u for u, _ in load_users()]
+    stats_list = []
+
+    for student in students:
+        try:
+            stats = get_student_stats(student)
+            if stats:
+                stats_list.append(
+                    {
+                        "username": student,
+                        "total_cards": stats.get("total", 0),
+                        "due_cards": stats.get("due", 0),
+                        "reviews_today": stats.get("reviews_today", 0),
+                    }
+                )
+        except Exception as e:
+            app.logger.error(f"⚠️ Error fetching stats for {student}: {e}")
+
+    return {"stats": stats_list}
+
 
 # --- Manage Users ---
 @app.route("/users")
