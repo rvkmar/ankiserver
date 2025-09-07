@@ -348,6 +348,107 @@ def get_review_history(username, days=30):
         os.remove(tmp_path)
     return history
 
+# # Deck stats per deck for each user
+# def get_deck_stats(username):
+#     tmp_path = safe_copy_db(username)
+#     if not tmp_path:
+#         return []
+
+#     stats = []
+#     deck_map = {}
+#     conn = None
+#     try:
+#         conn = sqlite3.connect(tmp_path)
+#         c = conn.cursor()
+
+#         # --- Try col.decks JSON ---
+#         try:
+#             c.execute("SELECT decks FROM col")
+#             row = c.fetchone()
+#             if row and row[0] and row[0].strip():
+#                 decks_json = json.loads(row[0])
+#                 for key, info in decks_json.items():
+#                     deck_map[int(key)] = info.get("name", f"Deck {key}")
+#         except Exception:
+#             pass
+
+#         # --- Fallback: legacy decks table ---
+#         if not deck_map:
+#             try:
+#                 c.execute("SELECT id, name FROM decks")
+#                 for did, name in c.fetchall():
+#                     deck_map[int(did)] = name
+#             except Exception:
+#                 pass
+
+#         # --- Initialize stats for all decks ---
+#         for did, name in deck_map.items():
+#             stats.append(
+#                 {
+#                     "deck": name,
+#                     "total": 0,
+#                     "due": 0,
+#                     "reviews_today": 0,
+#                     "id": did,
+#                     "is_total": False,  # 👈 marker
+#                 }
+#             )
+
+#         # --- Update counts from cards ---
+#         c.execute(
+#             "SELECT did, COUNT(*), SUM(due <= strftime('%s','now')) FROM cards GROUP BY did"
+#         )
+#         counts = {did: (total, due or 0) for did, total, due in c.fetchall()}
+
+#         for s in stats:
+#             did = s["id"]
+#             if did in counts:
+#                 total, due = counts[did]
+#                 s["total"] = total
+#                 s["due"] = due
+
+#         # --- Update reviews today ---
+#         today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+#         tomorrow = today + timedelta(days=1)
+#         today_start = int(today.timestamp() * 1000)
+#         tomorrow_start = int(tomorrow.timestamp() * 1000)
+
+#         c.execute(
+#             """
+#             SELECT c.did, COUNT(*)
+#             FROM revlog r
+#             JOIN cards c ON r.cid = c.id
+#             WHERE r.id BETWEEN ? AND ?
+#             GROUP BY c.did
+#             """,
+#             (today_start, tomorrow_start),
+#         )
+#         review_counts = {did: cnt for did, cnt in c.fetchall()}
+
+#         for s in stats:
+#             did = s["id"]
+#             if did in review_counts:
+#                 s["reviews_today"] = review_counts[did]
+
+#         # --- Add total row ---
+#         total_row = {
+#             "deck": "Total (All Decks)",
+#             "total": sum(s["total"] for s in stats),
+#             "due": sum(s["due"] for s in stats),
+#             "reviews_today": sum(s["reviews_today"] for s in stats),
+#             "id": -1,
+#             "is_total": True,  # 👈 marker
+#         }
+#         stats.append(total_row)
+
+#     finally:
+#         if conn:
+#             conn.close()
+#         if os.path.exists(tmp_path):
+#             os.remove(tmp_path)  # ✅ cleanup always
+
+#     return stats
+
 # Deck stats per deck for each user
 def get_deck_stats(username):
     tmp_path = safe_copy_db(username)
@@ -369,109 +470,81 @@ def get_deck_stats(username):
                 decks_json = json.loads(row[0])
                 for key, info in decks_json.items():
                     deck_map[int(key)] = info.get("name", f"Deck {key}")
-        except Exception as e:
-            print(f"⚠️ Deck map error: {e}")
+        except Exception:
+            pass
 
-        # --- Collection start day ---
+        # --- Fallback: legacy decks table ---
+        if not deck_map:
+            try:
+                c.execute("SELECT id, name FROM decks")
+                for did, name in c.fetchall():
+                    deck_map[int(did)] = name
+            except Exception:
+                pass
+
+        # --- Collection start day (for due calculation) ---
         c.execute("SELECT crt FROM col")
         col_crt = c.fetchone()[0]
         today_epoch_days = int(datetime.now().timestamp() // 86400)
         today_day = today_epoch_days - col_crt
-        
-        # --- Per deck stats ---
-        deck_stats = []
-        for did, total, due in c.execute(f"""
+
+        # --- Initialize stats for all decks ---
+        for did, name in deck_map.items():
+            stats.append(
+                {
+                    "deck": name,
+                    "total": 0,
+                    "due": 0,
+                    "reviews_today": 0,
+                    "id": did,
+                    "is_total": False,  # 👈 marker
+                }
+            )
+
+        # --- Update counts from cards (Anki logic) ---
+        c.execute(
+            f"""
             SELECT did,
-                COUNT(*),
-                SUM(
-                    (queue = 0 AND due <= 10000) OR
-                    (queue IN (2,3) AND due <= {today_day})
-                )
+                   COUNT(*),
+                   SUM(
+                       (queue = 0 AND due <= 10000) OR
+                       (queue IN (2,3) AND due <= {today_day})
+                   )
             FROM cards
             GROUP BY did
-        """):
-            # Reviews today per deck
-            start_of_day = int(datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp() * 1000)
-            end_of_day = start_of_day + 86400000
-            c.execute("""
-                SELECT COUNT(*)
-                FROM revlog r
-                JOIN cards c ON r.cid = c.id
-                WHERE c.did = ? AND r.id BETWEEN ? AND ?
-            """, (did, start_of_day, end_of_day))
-            reviews_today = c.fetchone()[0] or 0
+            """
+        )
+        counts = {did: (total, due or 0) for did, total, due in c.fetchall()}
 
-            deck_stats.append({
-                "deck": deck_map.get(int(did), f"Deck {did}"),
-                "total": total,
-                "due": due or 0,
-                "reviews_today": reviews_today
-            })
-    finally:
-        if conn:
-            conn.close()
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)  # ✅ cleanup always
-            
-    return deck_stats
+        for s in stats:
+            did = s["id"]
+            if did in counts:
+                total, due = counts[did]
+                s["total"] = total
+                s["due"] = due
 
-        # # --- Fallback: legacy decks table ---
-        # if not deck_map:
-        #     try:
-        #         c.execute("SELECT id, name FROM decks")
-        #         for did, name in c.fetchall():
-        #             deck_map[int(did)] = name
-        #     except Exception:
-        #         pass
+        # --- Update reviews today ---
+        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        tomorrow = today + timedelta(days=1)
+        today_start = int(today.timestamp() * 1000)
+        tomorrow_start = int(tomorrow.timestamp() * 1000)
 
-        # # --- Initialize stats for all decks ---
-        # for did, name in deck_map.items():
-        #     stats.append(
-        #         {
-        #             "deck": name,
-        #             "total": 0,
-        #             "due": 0,
-        #             "reviews_today": 0,
-        #             "id": did,
-        #             "is_total": False,  # 👈 marker
-        #         }
-        #     )
+        c.execute(
+            """
+            SELECT c.did, COUNT(*)
+            FROM revlog r
+            JOIN cards c ON r.cid = c.id
+            WHERE r.id BETWEEN ? AND ?
+            GROUP BY c.did
+            """,
+            (today_start, tomorrow_start),
+        )
+        review_counts = {did: cnt for did, cnt in c.fetchall()}
 
-        # # --- Update counts from cards ---
-        # c.execute(
-        #     "SELECT did, COUNT(*), SUM(due <= strftime('%s','now')) FROM cards GROUP BY did"
-        # )
-        # counts = {did: (total, due or 0) for did, total, due in c.fetchall()}
-
-        # for s in stats:
-        #     did = s["id"]
-        #     if did in counts:
-        #         total, due = counts[did]
-        #         s["total"] = total
-        #         s["due"] = due
-
-        # # --- Update reviews today ---
-        # today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        # tomorrow = today + timedelta(days=1)
-        # today_start = int(today.timestamp() * 1000)
-        # tomorrow_start = int(tomorrow.timestamp() * 1000)
-
-        # c.execute(
-        #     """
-        #     SELECT c.did, COUNT(*)
-        #     FROM revlog r
-        #     JOIN cards c ON r.cid = c.id
-        #     WHERE r.id BETWEEN ? AND ?
-        #     GROUP BY c.did
-        #     """,
-        #     (today_start, tomorrow_start),
-        # )
-        # review_counts = {did: cnt for did, cnt in c.fetchall()}
-
-        # for s in stats:
-        #     did = s["id"]
-        #     if did in review_counts:
-        #         s["reviews_today"] = review_counts[did]
+        for s in stats:
+            did = s["id"]
+            if did in review_counts:
+                s["reviews_today"] = review_counts[did]
 
         # --- Add total row ---
         total_row = {
