@@ -271,12 +271,9 @@ def get_student_stats(username):
             """
             SELECT COUNT(*) 
             FROM cards 
-            WHERE 
-                (queue = 0 AND due <= 10000)   -- new cards (due stores position, usually small int)
-                OR
-                (queue IN (2,3) AND due <= ?) OR (queue = 0 AND due <= ?)  -- review/relearning cards (due = day index)
+            WHERE (queue IN (2,3) AND due <= ?) OR (queue = 0 AND due <= ?)
         """,
-            (today_day,),
+            (today_day, 20),
         )  # 20 = new card limit (roughly); can be fetched from deck conf
         due = c.fetchone()[0] or 0
 
