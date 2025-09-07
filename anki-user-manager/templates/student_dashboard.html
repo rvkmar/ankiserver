@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>📊 Statistics for {{ student }}</h2>
+<h2>📊 Breakdown of Decks used by {{ student }}</h2>
+
+<div class="text-center mt-3">
+  <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">⬅ Back to Main Dashboard</a>
+</div>
 
 <!-- Deck Summary -->
 <div class="card mb-4">
@@ -11,8 +15,11 @@
       <thead class="table-light">
         <tr>
           <th>Deck</th>
-          <th>Total Cards</th>
-          <th>Due Cards</th>
+          <th>Total</th>
+          <th>New</th>
+          <th>Learn</th>
+          <th>Review</th>
+          <th>Due</th>
           <th>Reviews Today</th>
         </tr>
       </thead>
@@ -21,6 +28,9 @@
         <tr class="{{ 'total-row' if d.is_total else '' }}">
           <td>{{ d.deck }}</td>
           <td>{{ d.total }}</td>
+          <td>{{ d.new }}</td>
+          <td>{{ d.learn }}</td>
+          <td>{{ d.review }}</td>
           <td>{{ d.due }}</td>
           <td>{{ d.reviews_today }}</td>
         </tr>
